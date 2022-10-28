@@ -1,13 +1,13 @@
-import os
-from dolfinx import fem, io
+from dolfinx import fem
 from petsc4py import PETSc
 
 from networks_fenicsx.mesh import mesh
-from networks_fenicsx.solver import assembly 
+from networks_fenicsx.solver import assembly
+
 
 class Solver():
 
-    def __init__(self, graph: mesh.NetworkGraph, assembler : assembly.Assembler):
+    def __init__(self, graph: mesh.NetworkGraph, assembler: assembly.Assembler):
         self.G = graph
         self.assembler = assembler
 
@@ -16,7 +16,7 @@ class Solver():
             self.b = assembler.assembled_rhs()
 
     def solve(self):
-        
+
         # FIXME : To be given as options
         # Configure solver
         ksp = PETSc.KSP().create(self.G.msh.comm)
@@ -39,7 +39,7 @@ class Solver():
             q.x.array[:offset] = x.array_r[start:start + offset]
             q.x.scatter_forward()
             start += offset
-            print("q[",i,"] = ", q.x.array)
+            print("q[", i, "] = ", q.x.array)
             fluxes.append(q)
 
         p_space = self.assembler.function_spaces[-1]
