@@ -1,11 +1,11 @@
-from mesh import *
+from . import mesh
 
 def make_line_graph(n, export=False):
     '''
     Make a graph along the unit x-axis with n nodes
     '''
 
-    G = NetworkGraph()
+    G = mesh.NetworkGraph()
 
     dx = 1/(n-1)
     print("Adding nodes 0 to ", n)
@@ -28,7 +28,7 @@ def make_Y_bifurcation(export=False):
     Make a 3 branches network with one bifurcation
     '''
 
-    G = NetworkGraph()
+    G = mesh.NetworkGraph()
     
     G.add_nodes_from([0, 1, 2, 3])
     G.nodes[0]['pos']=[0,0,0]
@@ -49,7 +49,7 @@ def make_Y_bifurcation(export=False):
 
 def make_double_Y_bifurcation(export=False):
 
-    G = NetworkGraph()
+    G = mesh.NetworkGraph()
 
     G.add_nodes_from([0, 1, 2, 3,4,5,6,7])
     G.nodes[0]['pos']=[0,0,0]

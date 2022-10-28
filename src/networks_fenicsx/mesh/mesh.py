@@ -163,6 +163,9 @@ class NetworkGraph(nx.DiGraph):
 
     def mesh(self):
         return self.msh
+
+    def submeshes(self):
+        return list(nx.get_edge_attributes(self, 'submesh').values())
     
     def global_tangent(self, export=False):
 
