@@ -1,12 +1,13 @@
 from . import mesh
+from networks_fenicsx import config
 
 
-def make_line_graph(n, export=False):
+def make_line_graph(n, cfg: config.Config):
     '''
     Make a graph along the unit x-axis with n nodes
     '''
 
-    G = mesh.NetworkGraph()
+    G = mesh.NetworkGraph(cfg)
 
     dx = 1 / (n - 1)
     print("Adding nodes 0 to ", n)
@@ -18,19 +19,19 @@ def make_line_graph(n, export=False):
         print("Adding edge [", i, ", ", i + 1, "]")
         G.add_edge(i, i + 1)
 
-    G.build_mesh(export=export)
+    G.build_mesh()
     G.build_network_submeshes()
-    G.build_markers(export=export)
+    G.build_markers()
 
     return G
 
 
-def make_Y_bifurcation(export=False):
+def make_Y_bifurcation(cfg: config.Config):
     '''
     Make a 3 branches network with one bifurcation
     '''
 
-    G = mesh.NetworkGraph()
+    G = mesh.NetworkGraph(cfg)
 
     G.add_nodes_from([0, 1, 2, 3])
     G.nodes[0]['pos'] = [0, 0, 0]
@@ -42,16 +43,16 @@ def make_Y_bifurcation(export=False):
     G.add_edge(1, 2)
     G.add_edge(1, 3)
 
-    G.build_mesh(export=export)
+    G.build_mesh()
     G.build_network_submeshes()
-    G.build_markers(export=export)
+    G.build_markers()
 
     return G
 
 
-def make_double_Y_bifurcation(export=False):
+def make_double_Y_bifurcation(cfg: config.Config):
 
-    G = mesh.NetworkGraph()
+    G = mesh.NetworkGraph(cfg)
 
     G.add_nodes_from([0, 1, 2, 3, 4, 5, 6, 7])
     G.nodes[0]['pos'] = [0, 0, 0]
@@ -74,12 +75,12 @@ def make_double_Y_bifurcation(export=False):
     G.add_edge(3, 6)
     G.add_edge(3, 7)
 
-    G.build_mesh(export=export)
+    G.build_mesh()
     G.build_network_submeshes()
-    G.build_markers(export=export)
+    G.build_markers()
 
     return G
 
 
 if __name__ == '__main__':
-    make_Y_bifurcation(export=True)
+    make_Y_bifurcation(cfg=config.Config())

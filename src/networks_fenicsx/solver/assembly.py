@@ -6,17 +6,20 @@ import logging
 
 from networks_fenicsx.mesh import mesh
 from networks_fenicsx.utils import petsc_utils
+from networks_fenicsx.utils.timers import timeit
+from networks_fenicsx import config
 
 
 class Assembler():
 
-    def __init__(self, graph: mesh.NetworkGraph):
+    def __init__(self, config: config.Config, graph: mesh.NetworkGraph):
         self.G = graph
         self.function_spaces = None
         self.a = None
         self.L = None
         self.A = None
         self.L = None
+        self.cfg = config
 
     def dds(self, f):
         '''
@@ -54,6 +57,7 @@ class Assembler():
 
         return b
 
+    @timeit
     def compute_forms(self, f=None, p_bc_ex=None):
         '''
         Compute forms for hydraulic network model
@@ -132,6 +136,7 @@ class Assembler():
         self.a[-1][-1] = fem.form(zero * p * phi * dx)
         self.L[-1] = fem.form(zero * phi * dx)
 
+    @timeit
     def assemble(self):
         # Get the forms
         a = self.bilinear_forms()

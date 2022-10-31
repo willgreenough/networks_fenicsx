@@ -6,6 +6,9 @@ from dolfinx import fem, io, mesh
 
 import gmsh
 
+from networks_fenicsx.utils.timers import timeit
+from networks_fenicsx import config
+
 '''
 The Graphnics class constructs fenics meshes from networkx directed graphs.
 
@@ -17,10 +20,12 @@ class NetworkGraph(nx.DiGraph):
     Make FEniCSx mesh from networkx directed graph
     '''
 
-    def __init__(self):
+    def __init__(self, config: config.Config):
         nx.DiGraph.__init__(self)
 
         self.comm = MPI.COMM_WORLD
+        self.cfg = config
+        self.cfg.clean_dir()
 
         self.bifurcation_ixs = []
         self.boundary_ixs = []
@@ -35,7 +40,8 @@ class NetworkGraph(nx.DiGraph):
         self.BOUN_IN = 3
         self.BOUN_OUT = 4
 
-    def build_mesh(self, lcar=1, export=False):
+    @timeit
+    def build_mesh(self):
         '''
         Makes a fenics mesh from the graph
         Args:
@@ -54,7 +60,7 @@ class NetworkGraph(nx.DiGraph):
         pts = []
         lines = []
         for i, v in enumerate(vertex_coords):
-            pts.append(gmsh.model.geo.addPoint(v[0], v[1], v[2], lcar))
+            pts.append(gmsh.model.geo.addPoint(v[0], v[1], v[2], self.cfg.lcar))
 
         for i, c in enumerate(cells_array):
             lines.append(gmsh.model.geo.addLine(pts[c[0]], pts[c[1]]))
@@ -69,11 +75,12 @@ class NetworkGraph(nx.DiGraph):
             gmsh.model, comm=MPI.COMM_WORLD, rank=0, gdim=3)
         gmsh.finalize()
 
-        if export:
-            with io.XDMFFile(self.comm, "XDMF/mesh.xdmf", "w") as file:
+        if self.cfg.export:
+            with io.XDMFFile(self.comm, self.cfg.outdir + "/mesh/mesh.xdmf", "w") as file:
                 file.write_mesh(self.msh)
                 file.write_meshtags(self.subdomains)
 
+    @timeit
     def build_network_submeshes(self):
 
         tdim = self.msh.topology.dim
@@ -98,7 +105,8 @@ class NetworkGraph(nx.DiGraph):
             self.edges[u, v]["entities"] = []
             self.edges[u, v]["b_values"] = []
 
-    def build_markers(self, export=False):
+    @timeit
+    def build_markers(self):
         # Marking the bifurcations (in/out) and boundaries (in/out) for extermities of each edges
         for n, v in enumerate(self.nodes()):
             num_conn_edges = len(self.in_edges(v)) + len(self.out_edges(v))
@@ -143,8 +151,8 @@ class NetworkGraph(nx.DiGraph):
             self.edges[e]['vf'] = mesh.meshtags(e_msh, 0, indices, np.hstack(self.edges[e]["b_values"])[pos])
             e_msh.topology.create_connectivity(0, 1)
 
-            if export:
-                with io.XDMFFile(self.comm, "XDMF/edge_" + str(i) + ".xdmf", "w") as file:
+            if self.cfg.export:
+                with io.XDMFFile(self.comm, self.cfg.outdir + "/mesh/edge_" + str(i) + ".xdmf", "w") as file:
                     file.write_mesh(e_msh)
                     file.write_meshtags(self.edges[e]['vf'])
 
@@ -154,11 +162,11 @@ class NetworkGraph(nx.DiGraph):
     def submeshes(self):
         return list(nx.get_edge_attributes(self, 'submesh').values())
 
-    def global_tangent(self, export=False):
+    def global_tangent(self):
 
-        if export:
+        if self.cfg.export:
             self.global_tangent.x.scatter_forward()
-            with io.XDMFFile(self.comm, "tangent.xdmf", "w") as file:
+            with io.XDMFFile(self.comm, self.cfg.outdir + "/mesh/tangent.xdmf", "w") as file:
                 file.write_mesh(self.msh)
                 file.write_function(self.global_tangent)
 
