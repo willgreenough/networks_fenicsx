@@ -27,8 +27,8 @@ class NetworkGraph(nx.DiGraph):
         self.cfg = config
         self.cfg.clean_dir()
 
-        self.bifurcation_ixs = []
-        self.boundary_ixs = []
+        self.bifurcation_ixs: list[int] = []
+        self.boundary_ixs: list[int] = []
 
         self.msh = None
         self.subdomains = None
@@ -162,7 +162,7 @@ class NetworkGraph(nx.DiGraph):
     def submeshes(self):
         return list(nx.get_edge_attributes(self, 'submesh').values())
 
-    def global_tangent(self):
+    def tangent(self):
 
         if self.cfg.export:
             self.global_tangent.x.scatter_forward()
