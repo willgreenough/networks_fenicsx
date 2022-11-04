@@ -27,8 +27,8 @@ class NetworkGraph(nx.DiGraph):
         self.cfg = config
         self.cfg.clean_dir()
 
-        self.bifurcation_ixs: typing.List[int] = []
-        self.boundary_ixs: typing.List[int] = []
+        self.bifurcation_ixs: typing.List[int] = []  # noqa: F821
+        self.boundary_ixs: typing.List[int] = []  # noqa: F821
 
         self.msh = None
         self.subdomains = None
