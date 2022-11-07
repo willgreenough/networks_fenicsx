@@ -1,5 +1,6 @@
 import networkx as nx
 import numpy as np
+from typing import List
 
 from mpi4py import MPI
 from dolfinx import fem, io, mesh
@@ -27,8 +28,8 @@ class NetworkGraph(nx.DiGraph):
         self.cfg = config
         self.cfg.clean_dir()
 
-        self.bifurcation_ixs: typing.List[int] = []  # noqa: F821
-        self.boundary_ixs: typing.List[int] = []  # noqa: F821
+        self.bifurcation_ixs: List[int] = []  # noqa: F821
+        self.boundary_ixs: List[int] = []  # noqa: F821
 
         self.msh = None
         self.subdomains = None
