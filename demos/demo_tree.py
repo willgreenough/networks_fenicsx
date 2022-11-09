@@ -14,12 +14,10 @@ cfg = Config()
 cfg.outdir = "demo_tree"
 cfg.export = True
 cfg.clean = True
-cfg.lcar = 0.1
+# cfg.lcar = 0.5
 
-# Create Y bifurcation graph
-#G = mesh_generation.make_tree(n=3, H=1, W=2, cfg=cfg) # OK
-#G = mesh_generation.make_tree(n=5, H=1, W=2, cfg=cfg) # mesh ok but values inf
-G = mesh_generation.make_tree(n=4, H=1, W=2, cfg=cfg)
+# Create tree
+G = mesh_generation.make_tree(n=4, H=4, W=4, cfg=cfg)
 
 
 class p_bc_expr:

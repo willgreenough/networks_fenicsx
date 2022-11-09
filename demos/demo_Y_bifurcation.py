@@ -14,6 +14,7 @@ cfg = Config()
 cfg.outdir = "demo_Y_bifurcation"
 cfg.export = True
 cfg.clean = True
+# cfg.lcar = 0.25
 
 # Create Y bifurcation graph
 G = mesh_generation.make_Y_bifurcation(cfg)
