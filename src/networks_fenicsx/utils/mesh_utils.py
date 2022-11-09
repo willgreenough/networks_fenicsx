@@ -21,7 +21,7 @@ def transfer_submesh_data(u_parent: fem.Function, u_sub: fem.Function,
         for i, cell in enumerate(sub_to_parent_cells):
             bs = V_parent.dofmap.bs
             bs_sub = V_sub.dofmap.bs
-            assert(bs == bs_sub)
+            assert (bs == bs_sub)
             parent_dofs = V_parent.dofmap.cell_dofs(cell)
             sub_dofs = V_sub.dofmap.cell_dofs(i)
             for p_dof, s_dof in zip(parent_dofs, sub_dofs):
@@ -31,7 +31,7 @@ def transfer_submesh_data(u_parent: fem.Function, u_sub: fem.Function,
         for i, cell in enumerate(sub_to_parent_cells):
             bs = V_parent.dofmap.bs
             bs_sub = V_sub.dofmap.bs
-            assert(bs == bs_sub)
+            assert (bs == bs_sub)
             parent_dofs = V_parent.dofmap.cell_dofs(cell)
             sub_dofs = V_sub.dofmap.cell_dofs(i)
             for p_dof, s_dof in zip(parent_dofs, sub_dofs):
