@@ -50,11 +50,12 @@ class Assembler():
             ds_edge = Measure('ds', domain=self.G.edges[e]['submesh'], subdomain_data=self.G.edges[e]['vf'])
             edge_ix = edge_list.index(e)
             if ix == edge_ix:
-                L = L - q * ds_edge(self.G.BIF_OUT)
+                L -= q * ds_edge(self.G.BIF_OUT)
 
         L = fem.form(L)
         b = fem.petsc.assemble_vector(L)
 
+        # print("jump vector = ", b.view())
         return b
 
     @timeit
@@ -128,8 +129,7 @@ class Assembler():
             p_bc = fem.Function(P1_e)
             p_bc.interpolate(p_bc_ex.eval)
 
-            self.L[i] = fem.form(p_bc * vs[i] * ds_edge(self.G.BOUN_IN) - p_bc * vs[i] * ds_edge(self.G.BOUN_OUT),
-                                 entity_maps=entity_maps)
+            self.L[i] = fem.form(p_bc * vs[i] * ds_edge(self.G.BOUN_IN) - p_bc * vs[i] * ds_edge(self.G.BOUN_OUT), entity_maps=entity_maps)
 
         # Add zero to uninitialized diagonal blocks (needed by petsc)
         zero = fem.Function(P2)
@@ -194,6 +194,11 @@ class Assembler():
 
         self.A = A
         self.b = b
+
+        #print("A = ", A.getValues(range(A.getSize()[0]), range(A.getSize()[1])))
+        #print("A = ", A.view())
+        #print("b = ", b.getValues(range(b.getSize())))
+        #print("b = ", b.view())
 
         return (A, b)
 

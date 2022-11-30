@@ -1,5 +1,6 @@
 from dolfinx import fem, io
 from petsc4py import PETSc
+import numpy as np
 
 from networks_fenicsx.mesh import mesh
 from networks_fenicsx.solver import assembly
@@ -57,14 +58,11 @@ class Solver():
             # Transferring from DG submesh to DG parent
             transfer_submesh_data(global_q, DG_q, self.G.edges[e]['entity_map'], inverse=True)
 
-        print("global flux = ", global_q.x.array)
-
         p_space = self.assembler.function_spaces[-1]
         offset = p_space.dofmap.index_map.size_local * p_space.dofmap.index_map_bs
         pressure = fem.Function(p_space)
         pressure.x.array[:(len(x.array_r) - start)] = x.array_r[start:start + offset]
         pressure.x.scatter_forward()
-        print("pressure = ", pressure.x.array)
 
         for i, q in enumerate(fluxes):
             with io.XDMFFile(self.G.msh.comm, self.cfg.outdir + "/results/flux_" + str(i) + ".xdmf", "w") as file:
@@ -79,4 +77,4 @@ class Solver():
             file.write_mesh(pressure.function_space.mesh)
             file.write_function(pressure)
 
-        return (fluxes, pressure)
+        return (fluxes, global_q, pressure)

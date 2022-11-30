@@ -55,6 +55,7 @@ class NetworkGraph(nx.DiGraph):
         self.num_edges = len(self.edges)
 
         vertex_coords = np.asarray([self.nodes[v]['pos'] for v in self.nodes()])
+        # print("coords = ", vertex_coords)
         cells_array = np.asarray([[u, v] for u, v in self.edges()])
 
         gmsh.initialize()
@@ -151,6 +152,7 @@ class NetworkGraph(nx.DiGraph):
             indices, pos = np.unique(np.hstack(self.edges[e]["entities"]), return_index=True)
             self.edges[e]['vf'] = mesh.meshtags(e_msh, 0, indices, np.hstack(self.edges[e]["b_values"])[pos])
             e_msh.topology.create_connectivity(0, 1)
+            # print("vf (", i , ")= ", self.edges[e]['vf'].values)
 
             if self.cfg.export:
                 with io.XDMFFile(self.comm, self.cfg.outdir + "/mesh/edge_" + str(i) + ".xdmf", "w") as file:

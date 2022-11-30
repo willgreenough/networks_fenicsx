@@ -12,11 +12,8 @@ class Config:
 
     def clean_dir(self):
         if self.clean:
-            print("Cleaning repo")
             dirpath = Path(self.outdir)
-            print("dirpath = ", dirpath)
             if dirpath.exists() and dirpath.is_dir():
-                print("rm ", dirpath)
                 shutil.rmtree(dirpath)
 
     def as_dict(self):
