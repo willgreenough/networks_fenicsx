@@ -15,9 +15,11 @@ cfg = Config()
 cfg.outdir = "demo_perf"
 cfg.export = True
 
+
 class p_bc_expr:
     def eval(self, x):
         return np.full(x.shape[1], x[1])
+
 
 lcar = 0.5
 
@@ -28,7 +30,7 @@ cfg.clean = False
 p = Path(cfg.outdir)
 p.mkdir(exist_ok=True)
 
-for n in range (2,5):
+for n in range(2, 5):
 
     with (p / 'profiling.txt').open('a') as f:
         f.write("\n n = " + str(n) + "\n")
@@ -42,4 +44,3 @@ for n in range (2,5):
 
     solver_ = solver.Solver(cfg, G, assembler)
     (fluxes, global_flux, pressure) = solver_.solve()
- 

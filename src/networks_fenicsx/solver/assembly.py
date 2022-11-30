@@ -195,11 +195,6 @@ class Assembler():
         self.A = A
         self.b = b
 
-        #print("A = ", A.getValues(range(A.getSize()[0]), range(A.getSize()[1])))
-        #print("A = ", A.view())
-        #print("b = ", b.getValues(range(b.getSize())))
-        #print("b = ", b.view())
-
         return (A, b)
 
     def bilinear_forms(self):

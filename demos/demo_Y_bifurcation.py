@@ -22,7 +22,8 @@ G = mesh_generation.make_Y_bifurcation(cfg)
 
 class p_bc_expr:
     def eval(self, x):
-        return np.full(x.shape[1], x[0])
+        return np.full(x.shape[1], x[1])
+        # return np.full(x.shape[1], x[0])
 
 
 assembler = assembly.Assembler(cfg, G)

@@ -1,6 +1,5 @@
 from dolfinx import fem, io
 from petsc4py import PETSc
-import numpy as np
 
 from networks_fenicsx.mesh import mesh
 from networks_fenicsx.solver import assembly
