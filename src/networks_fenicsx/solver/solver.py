@@ -34,6 +34,11 @@ class Solver():
         x = self.A.createVecLeft()
         ksp.solve(self.b, x)
 
+        return x
+
+    @timeit
+    def export(self, x):
+
         q_degree = self.assembler.function_spaces[0].element.basix_element.degree
         global_q_space = fem.FunctionSpace(self.G.msh, ("DG", q_degree))
         global_q = fem.Function(global_q_space)

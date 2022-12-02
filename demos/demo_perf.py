@@ -1,7 +1,6 @@
 import os
 import numpy as np
 from pathlib import Path
-import matplotlib.pyplot as plt
 
 from networks_fenicsx.mesh import mesh_generation
 from networks_fenicsx.solver import assembly, solver
@@ -31,7 +30,7 @@ cfg.clean = False
 p = Path(cfg.outdir)
 p.mkdir(exist_ok=True)
 
-for n in range(2, 4):
+for n in range(2, 5):
 
     with (p / 'profiling.txt').open('a') as f:
         f.write("n: " + str(n) + "\n")
@@ -44,10 +43,17 @@ for n in range(2, 4):
     assembler.assemble()
 
     solver_ = solver.Solver(cfg, G, assembler)
-    (fluxes, global_flux, pressure) = solver_.solve()
+    sol = solver_.solve()
+    (fluxes, global_flux, pressure) = solver_.export(sol)
+
+    print("q mean = ", np.mean(global_flux.x.array))
 
 t_dict = timing_dict(cfg.outdir)
+print("compute_forms time = ", t_dict["compute_forms"])
+print("assembly time = ", t_dict["assemble"])
+print("solve time = ", t_dict["solve"])
+print("export time = ", t_dict["export"])
 
-fig, ax = plt.subplots()
-ax.plot(t_dict["n"], t_dict["solve"])
-plt.show()
+# fig, ax = plt.subplots()
+# ax.plot(t_dict["n"], t_dict["solve"])
+# plt.show()
