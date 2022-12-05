@@ -7,10 +7,6 @@ from networks_fenicsx.solver import assembly, solver
 from networks_fenicsx.config import Config
 from networks_fenicsx.utils.timers import timing_dict
 
-# Clear fenics cache
-print('Clearing cache')
-os.system('dijitso clean')
-
 cfg = Config()
 cfg.outdir = "demo_perf"
 cfg.export = True
@@ -32,6 +28,9 @@ p.mkdir(exist_ok=True)
 
 for n in range(2, 5):
 
+    print('Clearing cache')
+    os.system('rm -rf $HOME/.cache/fenics/')
+
     with (p / 'profiling.txt').open('a') as f:
         f.write("n: " + str(n) + "\n")
 
@@ -39,9 +38,11 @@ for n in range(2, 5):
     G = mesh_generation.make_tree(n=n, H=n, W=n, cfg=cfg)
 
     assembler = assembly.Assembler(cfg, G)
+    # Compute forms
     assembler.compute_forms(p_bc_ex=p_bc_expr())
+    # Assemble
     assembler.assemble()
-
+    # Solve
     solver_ = solver.Solver(cfg, G, assembler)
     sol = solver_.solve()
     (fluxes, global_flux, pressure) = solver_.export(sol)
