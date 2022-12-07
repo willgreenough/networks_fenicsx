@@ -6,6 +6,7 @@ from networks_fenicsx.mesh import mesh_generation
 from networks_fenicsx.solver import assembly, solver
 from networks_fenicsx.config import Config
 from networks_fenicsx.utils.timers import timing_dict
+from networks_fenicsx.utils.post_processing import export
 
 cfg = Config()
 cfg.outdir = "demo_perf"
@@ -45,7 +46,7 @@ for n in range(2, 5):
     # Solve
     solver_ = solver.Solver(cfg, G, assembler)
     sol = solver_.solve()
-    (fluxes, global_flux, pressure) = solver_.export(sol)
+    (fluxes, global_flux, pressure) = export(cfg, G, assembler.function_spaces, sol)
 
     print("q mean = ", np.mean(global_flux.x.array))
 
@@ -53,7 +54,6 @@ t_dict = timing_dict(cfg.outdir)
 print("compute_forms time = ", t_dict["compute_forms"])
 print("assembly time = ", t_dict["assemble"])
 print("solve time = ", t_dict["solve"])
-print("export time = ", t_dict["export"])
 
 # fig, ax = plt.subplots()
 # ax.plot(t_dict["n"], t_dict["solve"])
