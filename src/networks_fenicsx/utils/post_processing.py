@@ -1,5 +1,7 @@
 from dolfinx import fem, io
 from mpi4py import MPI
+import matplotlib.pyplot as plt
+import numpy as np
 
 from networks_fenicsx.mesh import mesh
 from networks_fenicsx import config
@@ -52,3 +54,32 @@ def export(config: config.Config, graph: mesh.NetworkGraph, function_spaces: lis
         file.write_function(pressure)
 
     return (fluxes, global_q, pressure)
+
+
+def perf_plot(config: config.Config, timing_dict):
+
+    # set width of bar
+    barWidth = 0.1
+    # fig = plt.subplots(figsize =(12, 8))
+
+    # Set position of bar on X axis
+    br1 = np.arange(len(timing_dict["n"]))
+    br2 = [x + barWidth for x in br1]
+    br3 = [x + barWidth for x in br2]
+
+    # Make the plot
+    plt.bar(br1, timing_dict["compute_forms"], color='r', width=barWidth,
+            edgecolor='grey', label='forms')
+    plt.bar(br2, timing_dict["assemble"], color='g', width=barWidth,
+            edgecolor='grey', label='assembly')
+    plt.bar(br3, timing_dict["solve"], color='b', width=barWidth,
+            edgecolor='grey', label='solve')
+
+    # Adding Xticks
+    plt.xlabel('Number of generations', fontweight='bold', fontsize=15)
+    plt.ylabel('Time [s]', fontweight='bold', fontsize=15)
+    plt.xticks([r + barWidth for r in range(len(timing_dict["n"]))],
+               timing_dict["n"])
+
+    plt.legend()
+    plt.show()

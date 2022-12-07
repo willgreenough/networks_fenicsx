@@ -3,6 +3,8 @@ from pathlib import Path
 from functools import wraps
 from typing import Dict, List
 
+import pandas as pd
+
 
 def timeit(func):
     """
@@ -49,3 +51,20 @@ def timing_dict(outdir_path: str):
             timing_dict[keyword] = [value]
 
     return timing_dict
+
+
+def timing_table(outdir_path: str):
+    """
+    Read 'profiling.txt' and create a table data file
+    Args:
+       str : outdir path
+    """
+    t_dict = timing_dict(outdir_path)
+
+    df = pd.DataFrame({
+        'n': t_dict["n"],
+        'forms': t_dict["compute_forms"],
+        'assembly': t_dict["assemble"],
+        'solve': t_dict["solve"]})
+
+    df.to_csv(outdir_path + '/timings.txt', sep='\t', index=False)

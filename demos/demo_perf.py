@@ -5,8 +5,8 @@ from pathlib import Path
 from networks_fenicsx.mesh import mesh_generation
 from networks_fenicsx.solver import assembly, solver
 from networks_fenicsx.config import Config
-from networks_fenicsx.utils.timers import timing_dict
-from networks_fenicsx.utils.post_processing import export
+from networks_fenicsx.utils.timers import timing_dict, timing_table
+from networks_fenicsx.utils.post_processing import export, perf_plot
 
 cfg = Config()
 cfg.outdir = "demo_perf"
@@ -27,7 +27,7 @@ cfg.clean = False
 p = Path(cfg.outdir)
 p.mkdir(exist_ok=True)
 
-for n in range(2, 5):
+for n in range(2, 4):
 
     print('Clearing cache')
     os.system('rm -rf $HOME/.cache/fenics/')
@@ -51,6 +51,10 @@ for n in range(2, 5):
     print("q mean = ", np.mean(global_flux.x.array))
 
 t_dict = timing_dict(cfg.outdir)
+timing_table(cfg.outdir)
+perf_plot(cfg, t_dict)
+
+print("n = = ", t_dict["n"])
 print("compute_forms time = ", t_dict["compute_forms"])
 print("assembly time = ", t_dict["assemble"])
 print("solve time = ", t_dict["solve"])
