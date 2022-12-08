@@ -56,7 +56,7 @@ def export(config: config.Config, graph: mesh.NetworkGraph, function_spaces: lis
     return (fluxes, global_q, pressure)
 
 
-def perf_plot(config: config.Config, timing_dict):
+def perf_plot(timing_dict):
 
     # set width of bar
     barWidth = 0.1
