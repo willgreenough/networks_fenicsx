@@ -40,18 +40,14 @@ def export(config: config.Config, graph: mesh.NetworkGraph, function_spaces: lis
     pressure.x.array[:(len(sol.array_r) - start)] = sol.array_r[start:start + offset]
     pressure.x.scatter_forward()
 
+    # Write to file
     for i, q in enumerate(fluxes):
-        with io.XDMFFile(MPI.COMM_WORLD, config.outdir + "/results/flux_" + str(i) + ".xdmf", "w") as file:
-            file.write_mesh(q.function_space.mesh)
-            file.write_function(q)
-
-    with io.XDMFFile(MPI.COMM_WORLD, config.outdir + "/results/flux.xdmf", "w") as file:
-        file.write_mesh(global_q.function_space.mesh)
-        file.write_function(global_q)
-
-    with io.XDMFFile(MPI.COMM_WORLD, config.outdir + "/results/pressure.xdmf", "w") as file:
-        file.write_mesh(pressure.function_space.mesh)
-        file.write_function(pressure)
+        with io.VTXWriter(MPI.COMM_WORLD, config.outdir + "/results/flux_" + str(i) + ".bp", q) as f:
+            f.write(0.0)
+    with io.VTXWriter(MPI.COMM_WORLD, config.outdir + "/results/flux.bp", global_q) as f:
+        f.write(0.0)
+    with io.VTXWriter(MPI.COMM_WORLD, config.outdir + "/results/pressure.bp", pressure) as f:
+        f.write(0.0)
 
     return (fluxes, global_q, pressure)
 

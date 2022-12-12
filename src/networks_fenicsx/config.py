@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from mpi4py import MPI
 import shutil
 
 
@@ -11,10 +12,10 @@ class Config:
     clean: bool = True
 
     def clean_dir(self):
-        if self.clean:
+        if self.clean and MPI.COMM_WORLD.rank == 0:
             dirpath = Path(self.outdir)
             if dirpath.exists() and dirpath.is_dir():
-                shutil.rmtree(dirpath)
+                shutil.rmtree(dirpath, ignore_errors=True)
 
     def as_dict(self):
         return {k: v for k, v in self.__dict__.items()}

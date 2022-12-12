@@ -59,6 +59,7 @@ class NetworkGraph(nx.DiGraph):
         cells_array = np.asarray([[u, v] for u, v in self.edges()])
 
         gmsh.initialize()
+        gmsh.option.setNumber('General.Verbosity', 1)
         pts = []
         lines = []
         for i, v in enumerate(vertex_coords):
@@ -77,6 +78,8 @@ class NetworkGraph(nx.DiGraph):
             gmsh.model, comm=MPI.COMM_WORLD, rank=0, gdim=3)
         gmsh.finalize()
 
+        if MPI.COMM_WORLD.rank == 0:
+            print("Nb vertices = ", self.msh.topology.index_map(0).size_global)
         if self.cfg.export:
             with io.XDMFFile(self.comm, self.cfg.outdir + "/mesh/mesh.xdmf", "w") as file:
                 file.write_mesh(self.msh)

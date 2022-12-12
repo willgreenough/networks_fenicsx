@@ -2,6 +2,7 @@ from time import perf_counter
 from pathlib import Path
 from functools import wraps
 from typing import Dict, List
+from mpi4py import MPI
 
 import pandas as pd
 
@@ -61,10 +62,11 @@ def timing_table(outdir_path: str):
     """
     t_dict = timing_dict(outdir_path)
 
-    df = pd.DataFrame({
-        'n': t_dict["n"],
-        'forms': t_dict["compute_forms"],
-        'assembly': t_dict["assemble"],
-        'solve': t_dict["solve"]})
+    if MPI.COMM_WORLD.rank == 0:
+        df = pd.DataFrame({
+            'n': t_dict["n"],
+            'forms': t_dict["compute_forms"],
+            'assembly': t_dict["assemble"],
+            'solve': t_dict["solve"]})
 
-    df.to_csv(outdir_path + '/timings.txt', sep='\t', index=False)
+        df.to_csv(outdir_path + '/timings.txt', sep='\t', index=False)
