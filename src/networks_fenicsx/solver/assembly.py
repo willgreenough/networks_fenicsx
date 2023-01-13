@@ -55,7 +55,6 @@ class Assembler():
         L = fem.form(L)
         b = fem.petsc.assemble_vector(L)
 
-        # print("jump vector = ", b.view())
         return b
 
     @timeit
@@ -104,25 +103,20 @@ class Assembler():
         self.L = [None] * (len(submeshes) + 1)
 
         # Build the global entity map
-        edge_imap = self.G.msh.topology.index_map(self.G.msh.topology.dim)
-        num_edges = edge_imap.size_local + edge_imap.num_ghosts
         entity_maps = {}
-        for i, e in enumerate(self.G.edges):
-            submsh = self.G.edges[e]['submesh']
-            entity_map = self.G.edges[e]['entity_map']
-            entity_maps.update({submsh: [entity_map.index(entity)
-                                         if entity in entity_map else -1
-                                         for entity in range(num_edges)]})
 
         # Assemble edge contributions to a and L
         for i, e in enumerate(self.G.edges):
-            dx_edge = Measure("dx", domain=self.G.edges[e]['submesh'])
-            ds_edge = Measure('ds', domain=self.G.edges[e]['submesh'],
-                              subdomain_data=self.G.edges[e]['vf'])
+
+            submsh = self.G.edges[e]['submesh']
+            entity_maps = {self.G.msh: self.G.edges[e]['entity_map']}
+
+            dx_edge = Measure("dx", domain=submsh)
+            ds_edge = Measure('ds', domain=submsh, subdomain_data=self.G.edges[e]['vf'])
 
             self.a[i][i] = fem.form(qs[i] * vs[i] * dx_edge)
-            self.a[-1][i] = fem.form(phi * self.dds(qs[i]) * dx, entity_maps=entity_maps)
-            self.a[i][-1] = fem.form(-p * self.dds(vs[i]) * dx, entity_maps=entity_maps)
+            self.a[-1][i] = fem.form(phi * self.dds(qs[i]) * dx_edge, entity_maps=entity_maps)
+            self.a[i][-1] = fem.form(-p * self.dds(vs[i]) * dx_edge, entity_maps=entity_maps)
 
             # Boundary condition on the correct space
             P1_e = fem.FunctionSpace(self.G.edges[e]['submesh'], ("Lagrange", 1))
@@ -158,6 +152,7 @@ class Assembler():
         A.setSizes(list(map(add, _A_size, (num_bifs, num_bifs))))
         A.setUp()
 
+        # b is fine
         b = PETSc.Vec().create()
         b.setSizes(_b_size + num_bifs)
         b.setUp()
@@ -170,27 +165,36 @@ class Assembler():
         jump_vecs = [[petsc_utils.convert_vec_to_petscmatrix(b_row) for b_row in qi] for qi in self.jump_vectors]
 
         # Insert jump vectors into A_new
-        for idx_block, v in enumerate(jump_vecs):
-            for idx_bif, jump_vec in enumerate(v):
-                # Compute jump vector transpose
-                jump_vec_T = jump_vec.copy()
-                jump_vec_T.transpose()
-                # Add jump vector and its transpose to correct matrix block
-                jump_vec_values = jump_vec.getValues(range(jump_vec.getSize()[0]), range(jump_vec.getSize()[1]))
-                jump_vec_T_values = jump_vec_T.getValues(range(jump_vec_T.getSize()[0]), range(jump_vec_T.getSize()[1]))
-
-                A.setValuesBlocked(idx_bif + _A_size[0],
-                                   range(jump_vec.getSize()[1] * idx_block,
-                                         jump_vec.getSize()[1] * (idx_block + 1)),
+        for i in range(0, num_bifs):
+            for j in range(0, self.G.num_edges):
+                jump_vec = jump_vecs[j][i]
+                jump_vec_values = jump_vec.getValues(range(jump_vec.getSize()[0]), range(jump_vec.getSize()[1]))[0]
+                A.setValuesBlocked(_A_size[0] + i,
+                                   range(jump_vec.getSize()[1] * j,
+                                         jump_vec.getSize()[1] * (j + 1)),
                                    jump_vec_values)
-                A.setValuesBlocked(range(jump_vec_T.getSize()[0] * idx_block,
-                                         jump_vec_T.getSize()[0] * (idx_block + 1)),
-                                   idx_bif + _A_size[1],
+                jump_vec.transpose()
+                jump_vec_T_values = jump_vec.getValues(range(jump_vec.getSize()[0]), range(jump_vec.getSize()[1]))
+                A.setValuesBlocked(range(jump_vec.getSize()[0] * j,
+                                         jump_vec.getSize()[0] * (j + 1)),
+                                   _A_size[1] + i,
                                    jump_vec_T_values)
 
         # Assembling A and b
         A.assemble()
         b.assemble()
+
+        # print("size A  = ", A.getSizes()) # OK
+        # for i in range(0, self.G.num_edges):
+        #     for ii in range(i, i+4):
+        #         row = A.getRow(ii)[1]
+        #         for j in range(0, self.G.num_edges):
+        #             print("A row[", i, "] col [", j, "] = ", row[4*j:4*(j+1)])
+
+        # for i in range(0, num_bifs):
+        #     print("A col[", _A_size[1] + i, "] = ", A.getColumnVector(_A_size[1] + i).getArray())
+        #     print("A row[", _A_size[0] + i, "] = ", A.getRow(_A_size[0] + i))
+        # print("A = ", A.view())
 
         self.A = A
         self.b = b

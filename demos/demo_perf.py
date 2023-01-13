@@ -1,12 +1,13 @@
 import os
 import numpy as np
 from pathlib import Path
+from mpi4py import MPI
 
 from networks_fenicsx.mesh import mesh_generation
 from networks_fenicsx.solver import assembly, solver
 from networks_fenicsx.config import Config
 from networks_fenicsx.utils.timers import timing_dict, timing_table
-from networks_fenicsx.utils.post_processing import export, perf_plot
+from networks_fenicsx.utils.post_processing import export  # , perf_plot
 
 cfg = Config()
 cfg.outdir = "demo_perf"
@@ -18,7 +19,7 @@ class p_bc_expr:
         return np.full(x.shape[1], x[1])
 
 
-lcar = 0.5
+cfg.lcar = 2.0
 
 # Cleaning directory only once
 cfg.clean_dir()
@@ -27,13 +28,14 @@ cfg.clean = False
 p = Path(cfg.outdir)
 p.mkdir(exist_ok=True)
 
-for n in range(2, 4):
+for n in range(2, 3):
 
-    print('Clearing cache')
-    os.system('rm -rf $HOME/.cache/fenics/')
+    if MPI.COMM_WORLD.rank == 0:
+        print('Clearing cache')
+        os.system('rm -rf $HOME/.cache/fenics/')
 
-    with (p / 'profiling.txt').open('a') as f:
-        f.write("n: " + str(n) + "\n")
+        with (p / 'profiling.txt').open('a') as f:
+            f.write("n: " + str(n) + "\n")
 
     # Create tree
     G = mesh_generation.make_tree(n=n, H=n, W=n, cfg=cfg)
@@ -52,7 +54,7 @@ for n in range(2, 4):
 
 t_dict = timing_dict(cfg.outdir)
 timing_table(cfg.outdir)
-perf_plot(cfg, t_dict)
+# perf_plot(t_dict)
 
 print("n = = ", t_dict["n"])
 print("compute_forms time = ", t_dict["compute_forms"])
