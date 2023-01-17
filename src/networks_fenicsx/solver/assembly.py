@@ -114,7 +114,7 @@ class Assembler():
             dx_edge = Measure("dx", domain=submsh)
             ds_edge = Measure('ds', domain=submsh, subdomain_data=self.G.edges[e]['vf'])
 
-            self.a[i][i] = fem.form(qs[i] * vs[i] * dx_edge)
+            self.a[i][i] = fem.form(qs[i] * vs[i] * dx_edge)  # FIXME ?
             self.a[-1][i] = fem.form(phi * self.dds(qs[i]) * dx_edge, entity_maps=entity_maps)
             self.a[i][-1] = fem.form(-p * self.dds(vs[i]) * dx_edge, entity_maps=entity_maps)
 
@@ -123,7 +123,7 @@ class Assembler():
             p_bc = fem.Function(P1_e)
             p_bc.interpolate(p_bc_ex.eval)
 
-            self.L[i] = fem.form(p_bc * vs[i] * ds_edge(self.G.BOUN_IN) - p_bc * vs[i] * ds_edge(self.G.BOUN_OUT), entity_maps=entity_maps)
+            self.L[i] = fem.form(p_bc * vs[i] * ds_edge(self.G.BOUN_IN) - p_bc * vs[i] * ds_edge(self.G.BOUN_OUT))
 
         # Add zero to uninitialized diagonal blocks (needed by petsc)
         zero = fem.Function(P2)
@@ -184,12 +184,13 @@ class Assembler():
         A.assemble()
         b.assemble()
 
-        # print("size A  = ", A.getSizes()) # OK
         # for i in range(0, self.G.num_edges):
         #     for ii in range(i, i+4):
         #         row = A.getRow(ii)[1]
         #         for j in range(0, self.G.num_edges):
-        #             print("A row[", i, "] col [", j, "] = ", row[4*j:4*(j+1)])
+        #             if np.any(row[4*j:4*(j+1)]):
+        #                 print("A block[", i, "] = ", row[4*j:4*(j+1)])
+        #     print("\n")
 
         # for i in range(0, num_bifs):
         #     print("A col[", _A_size[1] + i, "] = ", A.getColumnVector(_A_size[1] + i).getArray())
