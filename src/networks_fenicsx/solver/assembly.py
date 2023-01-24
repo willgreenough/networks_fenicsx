@@ -1,8 +1,13 @@
 from operator import add
 from ufl import TrialFunction, TestFunction, dx, dot, grad, Constant, Measure
 from dolfinx import fem
+# from dolfinx import io
+from dolfinx import mesh as _mesh
+# from mpi4py import MPI
+import basix
 from petsc4py import PETSc
 import logging
+import numpy as np
 
 from networks_fenicsx.mesh import mesh
 from networks_fenicsx.utils import petsc_utils
@@ -11,6 +16,9 @@ from networks_fenicsx import config
 
 
 class Assembler():
+    # TODO
+    # G: mesh.NetworkGraph
+    # __slots__ = tuple(__annotations__)
 
     def __init__(self, config: config.Config, graph: mesh.NetworkGraph):
         self.G = graph
@@ -77,9 +85,37 @@ class Assembler():
         submeshes = self.G.submeshes()
 
         # Flux spaces on each segment, ordered by the edge list
-        P3s = [fem.FunctionSpace(submsh, ("Lagrange", 3)) for submsh in submeshes]
+        # P3s = [fem.FunctionSpace(submsh, ("Lagrange", 3)) for submsh in submeshes]
         # Pressure space on global mesh
-        P2 = fem.FunctionSpace(self.G.msh, ("Lagrange", 2))
+        # P2 = fem.FunctionSpace(self.G.msh, ("Lagrange", 2))
+
+        P3_element = basix.ufl_wrapper.create_element(
+            family="Lagrange",
+            cell="interval",
+            degree=3,
+            lagrange_variant=basix.LagrangeVariant.equispaced,
+            gdim=3)
+        P3s = [fem.FunctionSpace(submsh, P3_element) for submsh in submeshes]
+        # for i,P3 in enumerate(P3s) :
+        #     print("P3s[", i ,"] coords = ", P3.tabulate_dof_coordinates())
+        #     x = P3.tabulate_dof_coordinates()
+        #     for c in range(P3.mesh.topology.index_map(1).size_local):
+        #         print("local ordering [", c , "] = ", P3.dofmap.cell_dofs(c))
+        #         print("local ordering coords [", c , "] = ", x[P3.dofmap.cell_dofs(c)])
+
+        P2_element = basix.ufl_wrapper.create_element(
+            family="Lagrange",
+            cell="interval",
+            degree=2,
+            lagrange_variant=basix.LagrangeVariant.equispaced,
+            gdim=3)
+        P2 = fem.FunctionSpace(self.G.msh, P2_element)
+        # x = P2.tabulate_dof_coordinates()
+        # print("P2 coords = ", x)
+        # for c in range(P2.mesh.topology.index_map(1).size_local):
+        #     print("local ordering [", c , "] = ", P2.dofmap.cell_dofs(c))
+        #     print("local ordering coords [", c , "] = ", x[P2.dofmap.cell_dofs(c)])
+
         self.function_spaces = P3s + [P2]
 
         # Fluxes on each branch
@@ -93,7 +129,9 @@ class Assembler():
         phi = TestFunction(P2)
 
         # Assemble variational formulation
-        dx = Measure('dx', domain=self.G.msh)
+        dx_zero = Measure('dx', domain=self.G.msh, subdomain_data=_mesh.meshtags(self.G.msh,
+                                                                                 self.G.msh.topology.dim, np.array([], dtype=np.int32),
+                                                                                 np.array([], dtype=np.int32)))
 
         # Compute jump vectors to be added into the global matrix as Lagrange multipliers
         self.jump_vectors = [[self.jump_vector(q, ix, j) for j in self.G.bifurcation_ixs] for ix, q in enumerate(qs)]
@@ -108,18 +146,20 @@ class Assembler():
         # Assemble edge contributions to a and L
         for i, e in enumerate(self.G.edges):
 
+            # print("edge ", i, " = ", e)
             submsh = self.G.edges[e]['submesh']
             entity_maps = {self.G.msh: self.G.edges[e]['entity_map']}
 
             dx_edge = Measure("dx", domain=submsh)
             ds_edge = Measure('ds', domain=submsh, subdomain_data=self.G.edges[e]['vf'])
 
-            self.a[i][i] = fem.form(qs[i] * vs[i] * dx_edge)  # FIXME ?
+            self.a[i][i] = fem.form(qs[i] * vs[i] * dx_edge)
             self.a[-1][i] = fem.form(phi * self.dds(qs[i]) * dx_edge, entity_maps=entity_maps)
             self.a[i][-1] = fem.form(-p * self.dds(vs[i]) * dx_edge, entity_maps=entity_maps)
 
             # Boundary condition on the correct space
             P1_e = fem.FunctionSpace(self.G.edges[e]['submesh'], ("Lagrange", 1))
+            # P1_e = P3s[i]
             p_bc = fem.Function(P1_e)
             p_bc.interpolate(p_bc_ex.eval)
 
@@ -127,8 +167,8 @@ class Assembler():
 
         # Add zero to uninitialized diagonal blocks (needed by petsc)
         zero = fem.Function(P2)
-        self.a[-1][-1] = fem.form(zero * p * phi * dx)
-        self.L[-1] = fem.form(zero * phi * dx)
+        self.a[-1][-1] = fem.form(zero * p * phi * dx_zero)
+        self.L[-1] = fem.form(zero * phi * dx_zero)
 
     @timeit
     def assemble(self):
@@ -139,6 +179,9 @@ class Assembler():
         _A = fem.petsc.assemble_matrix_block(a)
         _A.assemble()
         _b = fem.petsc.assemble_vector_block(L, a)
+        # print("A = ", _A.view())
+        # print("A = ", _A.norm(2))
+        # print("B = ", _b.norm(1))
 
         # Get  values form A to be inserted in new bigger matrix A_new
         _A_size = _A.getSize()
@@ -196,6 +239,10 @@ class Assembler():
         #     print("A col[", _A_size[1] + i, "] = ", A.getColumnVector(_A_size[1] + i).getArray())
         #     print("A row[", _A_size[0] + i, "] = ", A.getRow(_A_size[0] + i))
         # print("A = ", A.view())
+        # print("B = ", b.array)
+
+        # print("A NEW = ", A.norm(2))
+        # print("B NEW = ", b.norm(1))
 
         self.A = A
         self.b = b

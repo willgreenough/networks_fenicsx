@@ -2,7 +2,7 @@ from dolfinx import fem
 from ufl import TrialFunction, TestFunction, Measure
 from networks_fenicsx.mesh import mesh_generation
 from networks_fenicsx.config import Config
-
+import basix
 import numpy as np
 
 n = 2
@@ -17,9 +17,16 @@ G = mesh_generation.make_tree(n=n, H=n, W=n, cfg=cfg)
 submeshes = G.submeshes()
 
 # Flux spaces on each segment, ordered by the edge list
-P3s = [fem.FunctionSpace(submsh, ("Lagrange", 3)) for submsh in submeshes]
-# Pressure space on global mesh
-P2 = fem.FunctionSpace(G.msh, ("Lagrange", 2))
+# P3s = [fem.FunctionSpace(submsh, ("Lagrange", 3)) for submsh in submeshes]
+
+element = basix.ufl_wrapper.create_element(
+    family="Lagrange",
+    cell="interval",
+    degree=3,
+    lagrange_variant=basix.LagrangeVariant.equispaced,
+    gdim=3)
+
+P3s = [fem.FunctionSpace(submsh, element) for submsh in submeshes]
 
 # Fluxes on each branch
 qs = []
@@ -27,9 +34,6 @@ vs = []
 for P3 in P3s:
     qs.append(TrialFunction(P3))
     vs.append(TestFunction(P3))
-# Pressure
-p = TrialFunction(P2)
-phi = TestFunction(P2)
 
 # Initialize forms
 a = [[None] * (len(submeshes)) for i in range(len(submeshes))]

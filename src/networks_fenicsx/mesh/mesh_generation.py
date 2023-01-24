@@ -22,6 +22,7 @@ def make_line_graph(n, cfg: config.Config):
     G.build_mesh()
     G.build_network_submeshes()
     G.build_markers()
+    G.compute_tangent()
 
     return G
 
@@ -46,6 +47,7 @@ def make_Y_bifurcation(cfg: config.Config):
     G.build_mesh()
     G.build_network_submeshes()
     G.build_markers()
+    G.compute_tangent()
 
     return G
 
@@ -78,6 +80,7 @@ def make_double_Y_bifurcation(cfg: config.Config):
     G.build_mesh()
     G.build_network_submeshes()
     G.build_markers()
+    G.compute_tangent()
 
     return G
 
@@ -158,6 +161,7 @@ def make_tree(n: int, H: float, W: float, cfg: config.Config):
     G.build_mesh()
     G.build_network_submeshes()
     G.build_markers()
+    G.compute_tangent()
 
     return G
 

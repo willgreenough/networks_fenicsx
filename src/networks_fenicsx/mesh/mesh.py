@@ -88,24 +88,11 @@ class NetworkGraph(nx.DiGraph):
     @timeit
     def build_network_submeshes(self):
 
-        tdim = self.msh.topology.dim
-        gdim = self.msh.geometry.dim
-
-        DG0 = fem.VectorFunctionSpace(self.msh, ("DG", 0), dim=gdim)
-        self.global_tangent = fem.Function(DG0)
-
         for i, (u, v) in enumerate(self.edges):
             edge_subdomain = self.subdomains.find(i)
 
-            self.edges[u, v]['submesh'], self.edges[u, v]['entity_map'] = mesh.create_submesh(self.msh, tdim, edge_subdomain)[0:2]
+            self.edges[u, v]['submesh'], self.edges[u, v]['entity_map'] = mesh.create_submesh(self.msh, self.msh.topology.dim, edge_subdomain)[0:2]
             self.edges[u, v]['tag'] = i
-
-            # Compute tangent
-            tangent = np.asarray(self.nodes[v]['pos']) - np.asarray(self.nodes[u]['pos'])
-            tangent = tangent * 1 / np.linalg.norm(tangent)
-            self.edges[u, v]['tangent'] = tangent
-            for cell in edge_subdomain:
-                self.global_tangent.x.array[gdim * cell:gdim * (cell + 1)] = tangent
 
             self.edges[u, v]["entities"] = []
             self.edges[u, v]["b_values"] = []
@@ -161,6 +148,63 @@ class NetworkGraph(nx.DiGraph):
                 with io.XDMFFile(self.comm, self.cfg.outdir + "/mesh/edge_" + str(i) + ".xdmf", "w") as file:
                     file.write_mesh(e_msh)
                     file.write_meshtags(self.edges[e]['vf'])
+
+    @timeit
+    def compute_tangent(self):
+
+        gdim = self.msh.geometry.dim
+
+        boun_in = []
+        boun_out = []
+
+        DG0 = fem.VectorFunctionSpace(self.msh, ("DG", 0), dim=self.msh.geometry.dim)
+        self.global_tangent = fem.Function(DG0)
+        # print("DG0 coordinates = ", DG0.tabulate_dof_coordinates())
+
+        for i, (u, v) in enumerate(self.edges):
+            edge_subdomain = self.subdomains.find(i)
+
+            tangent = np.asarray(self.nodes[v]['pos']) - np.asarray(self.nodes[u]['pos'])
+            tangent = tangent * 1 / np.linalg.norm(tangent)
+            self.edges[u, v]['tangent'] = tangent
+
+            # Finding BOUN_IN and BOUN_OUT dofs coordinates
+            P1_e = fem.FunctionSpace(self.edges[(u, v)]['submesh'], ("Lagrange", 1))
+            dof_coords = P1_e.tabulate_dof_coordinates()
+
+            if self.edges[(u, v)]["vf"].find(self.BOUN_IN):
+                boun_in.append(dof_coords[self.edges[(u, v)]["vf"].find(self.BOUN_IN)])
+            if self.edges[(u, v)]["vf"].find(self.BOUN_OUT):
+                boun_out.append(dof_coords[self.edges[(u, v)]["vf"].find(self.BOUN_OUT)])
+
+        # TODO : Explicit message for this assert!
+        assert len(boun_in) > 0 and len(boun_out) > 0, \
+            "Error in submeshes markers : Need at least one inlet and one outlet"
+        global_dir = boun_out[0][0] - boun_in[0][0]
+        global_dir[0] = 0
+        print("global_dir = ", global_dir)
+
+        for i, (u, v) in enumerate(self.edges):
+            tangent = self.edges[u, v]['tangent']
+            # print("tangent = ", tangent)
+            t_dot_glob_dir = np.dot(tangent, global_dir)
+            # print("t_dot_glob_dir = ", t_dot_glob_dir)
+            global_dir_correction = t_dot_glob_dir * 1 / np.linalg.norm(t_dot_glob_dir)
+            # print("global_dir_correction = ", global_dir_correction)
+
+            # Update tangent with corrected direction
+            self.edges[u, v]['tangent'] *= global_dir_correction
+
+            edge_subdomain = self.subdomains.find(i)
+            for cell in edge_subdomain:
+                self.global_tangent.x.array[gdim * cell:gdim * (cell + 1)] = self.edges[u, v]['tangent']
+        self.global_tangent.x.scatter_forward()
+        print("global tg = ", self.global_tangent.x.array)
+        # self.global_tangent.x.scatter_forward()
+        # if self.cfg.export:
+        #     with io.XDMFFile(self.comm, self.cfg.outdir + "/mesh/tangent.xdmf", "w") as file:
+        #         file.write_mesh(self.msh)
+        #         file.write_function(self.global_tangent)
 
     def mesh(self):
         return self.msh
