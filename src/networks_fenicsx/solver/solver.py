@@ -20,13 +20,14 @@ class Solver():
     @timeit
     def solve(self):
 
-        # FIXME : To be given as options
         # Configure solver
         ksp = PETSc.KSP().create(self.G.msh.comm)
         ksp.setOperators(self.A)
+
         ksp.setType("preonly")
         ksp.getPC().setType("lu")
-        ksp.getPC().setFactorSolverType("superlu_dist")
+        # ksp.getPC().setFactorSolverType("superlu_dist") # Not giving correct solution
+        ksp.getPC().setFactorSolverType("umfpack")
 
         # Solve
         x = self.A.createVecLeft()

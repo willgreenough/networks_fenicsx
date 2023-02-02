@@ -17,6 +17,7 @@ cfg.export = True
 class p_bc_expr:
     def eval(self, x):
         return np.full(x.shape[1], x[1])
+        # return np.full(x.shape[1], 1.0)
 
 
 cfg.lcar = 2.0
@@ -28,7 +29,7 @@ cfg.clean = False
 p = Path(cfg.outdir)
 p.mkdir(exist_ok=True)
 
-for n in range(2, 3):
+for n in range(3, 4):
 
     if MPI.COMM_WORLD.rank == 0:
         print('Clearing cache')
@@ -49,8 +50,10 @@ for n in range(2, 3):
     solver_ = solver.Solver(cfg, G, assembler)
     sol = solver_.solve()
     (fluxes, global_flux, pressure) = export(cfg, G, assembler.function_spaces, sol)
-
-    print("q mean = ", np.mean(global_flux.x.array))
+    for i, flux in enumerate(fluxes):
+        print("flux[", i, "] = ", flux.x.array)
+    print("pressure  = ", pressure.x.array)
+    # print("q mean = ", np.mean(global_flux.x.array))
 
 t_dict = timing_dict(cfg.outdir)
 timing_table(cfg.outdir)

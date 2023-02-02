@@ -85,10 +85,7 @@ class Assembler():
         submeshes = self.G.submeshes()
 
         # Flux spaces on each segment, ordered by the edge list
-        # P3s = [fem.FunctionSpace(submsh, ("Lagrange", 3)) for submsh in submeshes]
-        # Pressure space on global mesh
-        # P2 = fem.FunctionSpace(self.G.msh, ("Lagrange", 2))
-
+        # Using equispaced elements to match with legacy FEniCS
         P3_element = basix.ufl_wrapper.create_element(
             family="Lagrange",
             cell="interval",
@@ -96,12 +93,6 @@ class Assembler():
             lagrange_variant=basix.LagrangeVariant.equispaced,
             gdim=3)
         P3s = [fem.FunctionSpace(submsh, P3_element) for submsh in submeshes]
-        # for i,P3 in enumerate(P3s) :
-        #     print("P3s[", i ,"] coords = ", P3.tabulate_dof_coordinates())
-        #     x = P3.tabulate_dof_coordinates()
-        #     for c in range(P3.mesh.topology.index_map(1).size_local):
-        #         print("local ordering [", c , "] = ", P3.dofmap.cell_dofs(c))
-        #         print("local ordering coords [", c , "] = ", x[P3.dofmap.cell_dofs(c)])
 
         P2_element = basix.ufl_wrapper.create_element(
             family="Lagrange",
@@ -110,11 +101,6 @@ class Assembler():
             lagrange_variant=basix.LagrangeVariant.equispaced,
             gdim=3)
         P2 = fem.FunctionSpace(self.G.msh, P2_element)
-        # x = P2.tabulate_dof_coordinates()
-        # print("P2 coords = ", x)
-        # for c in range(P2.mesh.topology.index_map(1).size_local):
-        #     print("local ordering [", c , "] = ", P2.dofmap.cell_dofs(c))
-        #     print("local ordering coords [", c , "] = ", x[P2.dofmap.cell_dofs(c)])
 
         self.function_spaces = P3s + [P2]
 
@@ -124,6 +110,7 @@ class Assembler():
         for P3 in P3s:
             qs.append(TrialFunction(P3))
             vs.append(TestFunction(P3))
+
         # Pressure
         p = TrialFunction(P2)
         phi = TestFunction(P2)
@@ -146,7 +133,6 @@ class Assembler():
         # Assemble edge contributions to a and L
         for i, e in enumerate(self.G.edges):
 
-            # print("edge ", i, " = ", e)
             submsh = self.G.edges[e]['submesh']
             entity_maps = {self.G.msh: self.G.edges[e]['entity_map']}
 
@@ -159,7 +145,6 @@ class Assembler():
 
             # Boundary condition on the correct space
             P1_e = fem.FunctionSpace(self.G.edges[e]['submesh'], ("Lagrange", 1))
-            # P1_e = P3s[i]
             p_bc = fem.Function(P1_e)
             p_bc.interpolate(p_bc_ex.eval)
 
@@ -175,13 +160,12 @@ class Assembler():
         # Get the forms
         a = self.bilinear_forms()
         L = self.linear_forms()
+
         # Assemble system from the given forms
         _A = fem.petsc.assemble_matrix_block(a)
         _A.assemble()
         _b = fem.petsc.assemble_vector_block(L, a)
-        # print("A = ", _A.view())
-        # print("A = ", _A.norm(2))
-        # print("B = ", _b.norm(1))
+        _b.assemble()
 
         # Get  values form A to be inserted in new bigger matrix A_new
         _A_size = _A.getSize()
@@ -226,23 +210,6 @@ class Assembler():
         # Assembling A and b
         A.assemble()
         b.assemble()
-
-        # for i in range(0, self.G.num_edges):
-        #     for ii in range(i, i+4):
-        #         row = A.getRow(ii)[1]
-        #         for j in range(0, self.G.num_edges):
-        #             if np.any(row[4*j:4*(j+1)]):
-        #                 print("A block[", i, "] = ", row[4*j:4*(j+1)])
-        #     print("\n")
-
-        # for i in range(0, num_bifs):
-        #     print("A col[", _A_size[1] + i, "] = ", A.getColumnVector(_A_size[1] + i).getArray())
-        #     print("A row[", _A_size[0] + i, "] = ", A.getRow(_A_size[0] + i))
-        # print("A = ", A.view())
-        # print("B = ", b.array)
-
-        # print("A NEW = ", A.norm(2))
-        # print("B NEW = ", b.norm(1))
 
         self.A = A
         self.b = b
