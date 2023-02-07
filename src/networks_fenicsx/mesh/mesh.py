@@ -1,6 +1,7 @@
 import networkx as nx
 import numpy as np
 from typing import List
+import copy
 
 from mpi4py import MPI
 from dolfinx import fem, io, mesh
@@ -159,7 +160,6 @@ class NetworkGraph(nx.DiGraph):
 
         DG0 = fem.VectorFunctionSpace(self.msh, ("DG", 0), dim=self.msh.geometry.dim)
         self.global_tangent = fem.Function(DG0)
-        # print("DG0 coordinates = ", DG0.tabulate_dof_coordinates())
 
         for i, (u, v) in enumerate(self.edges):
             edge_subdomain = self.subdomains.find(i)
@@ -177,20 +177,19 @@ class NetworkGraph(nx.DiGraph):
             if self.edges[(u, v)]["vf"].find(self.BOUN_OUT):
                 boun_out.append(dof_coords[self.edges[(u, v)]["vf"].find(self.BOUN_OUT)])
 
-        # TODO : Explicit message for this assert!
         assert len(boun_in) > 0 and len(boun_out) > 0, \
             "Error in submeshes markers : Need at least one inlet and one outlet"
         global_dir = boun_out[0][0] - boun_in[0][0]
-        global_dir[0] = 0
-        print("global_dir = ", global_dir)
+        global_dir[0] = 0  # Global tangent oriented in the y direction
+        global_dir_copy = copy.deepcopy(global_dir)
 
         for i, (u, v) in enumerate(self.edges):
             tangent = self.edges[u, v]['tangent']
-            # print("tangent = ", tangent)
             t_dot_glob_dir = np.dot(tangent, global_dir)
-            # print("t_dot_glob_dir = ", t_dot_glob_dir)
+            while t_dot_glob_dir == 0:  # if global_dir is perpendicular to tangent
+                global_dir_copy[0] += 1
+                t_dot_glob_dir = np.dot(tangent, global_dir_copy)
             global_dir_correction = t_dot_glob_dir * 1 / np.linalg.norm(t_dot_glob_dir)
-            # print("global_dir_correction = ", global_dir_correction)
 
             # Update tangent with corrected direction
             self.edges[u, v]['tangent'] *= global_dir_correction
@@ -200,11 +199,6 @@ class NetworkGraph(nx.DiGraph):
                 self.global_tangent.x.array[gdim * cell:gdim * (cell + 1)] = self.edges[u, v]['tangent']
         self.global_tangent.x.scatter_forward()
         print("global tg = ", self.global_tangent.x.array)
-        # self.global_tangent.x.scatter_forward()
-        # if self.cfg.export:
-        #     with io.XDMFFile(self.comm, self.cfg.outdir + "/mesh/tangent.xdmf", "w") as file:
-        #         file.write_mesh(self.msh)
-        #         file.write_function(self.global_tangent)
 
     def mesh(self):
         return self.msh

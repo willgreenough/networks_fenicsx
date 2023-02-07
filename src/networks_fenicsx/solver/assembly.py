@@ -86,34 +86,36 @@ class Assembler():
 
         # Flux spaces on each segment, ordered by the edge list
         # Using equispaced elements to match with legacy FEniCS
-        P3_element = basix.ufl_wrapper.create_element(
+        flux_degree = self.cfg.flux_degree
+        flux_element = basix.ufl_wrapper.create_element(
             family="Lagrange",
             cell="interval",
-            degree=3,
+            degree=flux_degree,
             lagrange_variant=basix.LagrangeVariant.equispaced,
             gdim=3)
-        P3s = [fem.FunctionSpace(submsh, P3_element) for submsh in submeshes]
+        Pqs = [fem.FunctionSpace(submsh, flux_element) for submsh in submeshes]
 
-        P2_element = basix.ufl_wrapper.create_element(
+        pressure_degree = self.cfg.pressure_degree
+        pressure_element = basix.ufl_wrapper.create_element(
             family="Lagrange",
             cell="interval",
-            degree=2,
+            degree=pressure_degree,
             lagrange_variant=basix.LagrangeVariant.equispaced,
             gdim=3)
-        P2 = fem.FunctionSpace(self.G.msh, P2_element)
+        Pp = fem.FunctionSpace(self.G.msh, pressure_element)
 
-        self.function_spaces = P3s + [P2]
+        self.function_spaces = Pqs + [Pp]
 
         # Fluxes on each branch
         qs = []
         vs = []
-        for P3 in P3s:
-            qs.append(TrialFunction(P3))
-            vs.append(TestFunction(P3))
+        for Pq in Pqs:
+            qs.append(TrialFunction(Pq))
+            vs.append(TestFunction(Pq))
 
         # Pressure
-        p = TrialFunction(P2)
-        phi = TestFunction(P2)
+        p = TrialFunction(Pp)
+        phi = TestFunction(Pp)
 
         # Assemble variational formulation
         dx_zero = Measure('dx', domain=self.G.msh, subdomain_data=_mesh.meshtags(self.G.msh,
@@ -151,7 +153,7 @@ class Assembler():
             self.L[i] = fem.form(p_bc * vs[i] * ds_edge(self.G.BOUN_IN) - p_bc * vs[i] * ds_edge(self.G.BOUN_OUT))
 
         # Add zero to uninitialized diagonal blocks (needed by petsc)
-        zero = fem.Function(P2)
+        zero = fem.Function(Pp)
         self.a[-1][-1] = fem.form(zero * p * phi * dx_zero)
         self.L[-1] = fem.form(zero * phi * dx_zero)
 

@@ -13,13 +13,16 @@ cfg = Config()
 cfg.outdir = "demo_perf"
 cfg.export = True
 
+cfg.flux_degree = 2
+cfg.pressure_degree = 1
+
 
 class p_bc_expr:
     def eval(self, x):
         return np.full(x.shape[1], x[1])
-        # return np.full(x.shape[1], 1.0)
 
 
+# One element per segment
 cfg.lcar = 2.0
 
 # Cleaning directory only once

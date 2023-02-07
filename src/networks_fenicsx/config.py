@@ -8,6 +8,8 @@ import shutil
 class Config:
     outdir: str = "results"
     lcar: float = 1.0
+    flux_degree: int = 2
+    pressure_degree: int = 1
     export: bool = False
     clean: bool = True
 
