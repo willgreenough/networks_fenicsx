@@ -171,15 +171,17 @@ class NetworkGraph(nx.DiGraph):
             # Finding BOUN_IN and BOUN_OUT dofs coordinates
             P1_e = fem.FunctionSpace(self.edges[(u, v)]['submesh'], ("Lagrange", 1))
             dof_coords = P1_e.tabulate_dof_coordinates()
+            # Translate from numpy.int32 types to native Python int
+            vf_edge = [val.item() for val in self.edges[(u, v)]["vf"].values]
 
-            if self.edges[(u, v)]["vf"].find(self.BOUN_IN):
-                boun_in.append(dof_coords[self.edges[(u, v)]["vf"].find(self.BOUN_IN)])
-            if self.edges[(u, v)]["vf"].find(self.BOUN_OUT):
-                boun_out.append(dof_coords[self.edges[(u, v)]["vf"].find(self.BOUN_OUT)])
+            if self.BOUN_IN in vf_edge:
+                boun_in.append(dof_coords[vf_edge.index(self.BOUN_IN)])
+            if self.BOUN_OUT in vf_edge:
+                boun_out.append(dof_coords[vf_edge.index(self.BOUN_OUT)])
 
         assert len(boun_in) > 0 and len(boun_out) > 0, \
             "Error in submeshes markers : Need at least one inlet and one outlet"
-        global_dir = boun_out[0][0] - boun_in[0][0]
+        global_dir = boun_out[0] - boun_in[0]
         global_dir[0] = 0  # Global tangent oriented in the y direction
         global_dir_copy = copy.deepcopy(global_dir)
 
@@ -198,7 +200,6 @@ class NetworkGraph(nx.DiGraph):
             for cell in edge_subdomain:
                 self.global_tangent.x.array[gdim * cell:gdim * (cell + 1)] = self.edges[u, v]['tangent']
         self.global_tangent.x.scatter_forward()
-        print("global tg = ", self.global_tangent.x.array)
 
     def mesh(self):
         return self.msh

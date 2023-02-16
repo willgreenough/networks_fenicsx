@@ -32,7 +32,7 @@ cfg.clean = False
 p = Path(cfg.outdir)
 p.mkdir(exist_ok=True)
 
-for n in range(3, 4):
+for n in range(2, 8):
 
     if MPI.COMM_WORLD.rank == 0:
         print('Clearing cache')
@@ -52,21 +52,18 @@ for n in range(3, 4):
     # Solve
     solver_ = solver.Solver(cfg, G, assembler)
     sol = solver_.solve()
-    (fluxes, global_flux, pressure) = export(cfg, G, assembler.function_spaces, sol)
-    for i, flux in enumerate(fluxes):
-        print("flux[", i, "] = ", flux.x.array)
-    print("pressure  = ", pressure.x.array)
+    (fluxes, global_flux, pressure) = export(cfg, G, assembler.function_spaces, sol,
+                                             export_dir="n" + str(n))
+    # for i, flux in enumerate(fluxes):
+    #     print("flux[", i, "] = ", flux.x.array)
+    # print("pressure  = ", pressure.x.array)
     # print("q mean = ", np.mean(global_flux.x.array))
 
 t_dict = timing_dict(cfg.outdir)
 timing_table(cfg.outdir)
 # perf_plot(t_dict)
 
-print("n = = ", t_dict["n"])
+print("n = ", t_dict["n"])
 print("compute_forms time = ", t_dict["compute_forms"])
 print("assembly time = ", t_dict["assemble"])
 print("solve time = ", t_dict["solve"])
-
-# fig, ax = plt.subplots()
-# ax.plot(t_dict["n"], t_dict["solve"])
-# plt.show()

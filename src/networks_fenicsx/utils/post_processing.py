@@ -8,7 +8,7 @@ from networks_fenicsx import config
 from networks_fenicsx.utils.mesh_utils import transfer_submesh_data
 
 
-def export(config: config.Config, graph: mesh.NetworkGraph, function_spaces: list, sol):
+def export(config: config.Config, graph: mesh.NetworkGraph, function_spaces: list, sol, export_dir="results"):
 
     q_space = function_spaces[0]
     p_space = function_spaces[-1]
@@ -42,11 +42,11 @@ def export(config: config.Config, graph: mesh.NetworkGraph, function_spaces: lis
 
     # Write to file
     for i, q in enumerate(fluxes):
-        with io.VTXWriter(MPI.COMM_WORLD, config.outdir + "/results/flux_" + str(i) + ".bp", q) as f:
+        with io.VTXWriter(MPI.COMM_WORLD, config.outdir + "/" + export_dir + "/flux_" + str(i) + ".bp", q) as f:
             f.write(0.0)
-    with io.VTXWriter(MPI.COMM_WORLD, config.outdir + "/results/flux.bp", global_q) as f:
+    with io.VTXWriter(MPI.COMM_WORLD, config.outdir + "/" + export_dir + "/flux.bp", global_q) as f:
         f.write(0.0)
-    with io.VTXWriter(MPI.COMM_WORLD, config.outdir + "/results/pressure.bp", pressure) as f:
+    with io.VTXWriter(MPI.COMM_WORLD, config.outdir + "/" + export_dir + "/pressure.bp", pressure) as f:
         f.write(0.0)
 
     return (fluxes, global_q, pressure)
