@@ -2,7 +2,7 @@ from . import mesh
 from networks_fenicsx import config
 
 
-def make_line_graph(n, cfg: config.Config):
+def make_line_graph(n, cfg: config.Config, dim=3):
     '''
     Make a graph along the unit x-axis with n nodes
     '''
@@ -10,13 +10,14 @@ def make_line_graph(n, cfg: config.Config):
     G = mesh.NetworkGraph(cfg)
 
     dx = 1 / (n - 1)
-    print("Adding nodes 0 to ", n)
     G.add_nodes_from(range(0, n))
     for i in range(0, n):
-        G.nodes[i]['pos'] = [i * dx, 0, 0]
+        if dim == 2:
+            G.nodes[i]['pos'] = [i * dx, 0]
+        else:
+            G.nodes[i]['pos'] = [i * dx, 0, 0]
 
     for i in range(0, n - 1):
-        print("Adding edge [", i, ", ", i + 1, "]")
         G.add_edge(i, i + 1)
 
     G.build_mesh()
@@ -27,7 +28,7 @@ def make_line_graph(n, cfg: config.Config):
     return G
 
 
-def make_Y_bifurcation(cfg: config.Config):
+def make_Y_bifurcation(cfg: config.Config, dim=3):
     '''
     Make a 3 branches network with one bifurcation
     '''
@@ -35,10 +36,16 @@ def make_Y_bifurcation(cfg: config.Config):
     G = mesh.NetworkGraph(cfg)
 
     G.add_nodes_from([0, 1, 2, 3])
-    G.nodes[0]['pos'] = [0, 0, 0]
-    G.nodes[1]['pos'] = [0, 0.5, 0]
-    G.nodes[2]['pos'] = [-0.5, 1, 0]
-    G.nodes[3]['pos'] = [0.5, 1, 0]
+    if dim == 2:
+        G.nodes[0]['pos'] = [0, 0]
+        G.nodes[1]['pos'] = [0, 0.5]
+        G.nodes[2]['pos'] = [-0.5, 1]
+        G.nodes[3]['pos'] = [0.5, 1]
+    else:
+        G.nodes[0]['pos'] = [0, 0, 0]
+        G.nodes[1]['pos'] = [0, 0.5, 0]
+        G.nodes[2]['pos'] = [-0.5, 1, 0]
+        G.nodes[3]['pos'] = [0.5, 1, 0]
 
     G.add_edge(0, 1)
     G.add_edge(1, 2)
@@ -52,25 +59,33 @@ def make_Y_bifurcation(cfg: config.Config):
     return G
 
 
-def make_double_Y_bifurcation(cfg: config.Config):
+def make_double_Y_bifurcation(cfg: config.Config, dim=3):
 
     G = mesh.NetworkGraph(cfg)
 
     G.add_nodes_from([0, 1, 2, 3, 4, 5, 6, 7])
-    G.nodes[0]['pos'] = [0, 0, 0]
-    G.nodes[1]['pos'] = [0, 0.5, 0]
-    G.nodes[2]['pos'] = [-0.5, 1, 0]
-    G.nodes[3]['pos'] = [0.5, 1, 0]
+    if dim == 2:
+        G.nodes[0]['pos'] = [0, 0]
+        G.nodes[1]['pos'] = [0, 0.5]
+        G.nodes[2]['pos'] = [-0.5, 1]
+        G.nodes[3]['pos'] = [0.5, 1]
+        G.nodes[4]['pos'] = [-0.75, 1.5]
+        G.nodes[5]['pos'] = [-0.25, 1.5]
+        G.nodes[6]['pos'] = [0.25, 1.5]
+        G.nodes[7]['pos'] = [0.75, 1.5]
+    else:
+        G.nodes[0]['pos'] = [0, 0, 0]
+        G.nodes[1]['pos'] = [0, 0.5, 0]
+        G.nodes[2]['pos'] = [-0.5, 1, 0]
+        G.nodes[3]['pos'] = [0.5, 1, 0]
+        G.nodes[4]['pos'] = [-0.75, 1.5, 0]
+        G.nodes[5]['pos'] = [-0.25, 1.5, 0]
+        G.nodes[6]['pos'] = [0.25, 1.5, 0]
+        G.nodes[7]['pos'] = [0.75, 1.5, 0]
 
     G.add_edge(0, 1)
     G.add_edge(1, 2)
     G.add_edge(1, 3)
-
-    G.nodes[4]['pos'] = [-0.75, 1.5, 0]
-    G.nodes[5]['pos'] = [-0.25, 1.5, 0]
-
-    G.nodes[6]['pos'] = [0.25, 1.5, 0]
-    G.nodes[7]['pos'] = [0.75, 1.5, 0]
 
     G.add_edge(2, 4)
     G.add_edge(2, 5)
@@ -108,7 +123,7 @@ def tree_edges(n, r):
                 break
 
 
-def make_tree(n: int, H: float, W: float, cfg: config.Config):
+def make_tree(n: int, H: float, W: float, cfg: config.Config, dim=3):
     '''
     n : number of generations
     H : height
@@ -133,8 +148,12 @@ def make_tree(n: int, H: float, W: float, cfg: config.Config):
 
     # Add two first nodes
     idx = 0
-    G.nodes[idx]['pos'] = [0, 0, 0]
-    G.nodes[idx + 1]['pos'] = [0, y_offset, 0]
+    if dim == 2:
+        G.nodes[idx]['pos'] = [0, 0]
+        G.nodes[idx + 1]['pos'] = [0, y_offset]
+    else:
+        G.nodes[idx]['pos'] = [0, 0, 0]
+        G.nodes[idx + 1]['pos'] = [0, y_offset, 0]
     idx = idx + 2
 
     # Add nodes for rest of the tree
@@ -151,7 +170,10 @@ def make_tree(n: int, H: float, W: float, cfg: config.Config):
         # Add nodes to G, from sorted x_coord array
         x_coord.sort()
         for x in x_coord:
-            G.nodes[idx]['pos'] = [x, y, 0]
+            if dim == 2:
+                G.nodes[idx]['pos'] = [x, y]
+            else:
+                G.nodes[idx]['pos'] = [x, y, 0]
             idx = idx + 1
 
     edges = tree_edges(nb_nodes, r)

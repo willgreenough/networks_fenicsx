@@ -56,7 +56,6 @@ class NetworkGraph(nx.DiGraph):
         self.num_edges = len(self.edges)
 
         vertex_coords = np.asarray([self.nodes[v]['pos'] for v in self.nodes()])
-        # print("coords = ", vertex_coords)
         cells_array = np.asarray([[u, v] for u, v in self.edges()])
 
         gmsh.initialize()
@@ -64,7 +63,10 @@ class NetworkGraph(nx.DiGraph):
         pts = []
         lines = []
         for i, v in enumerate(vertex_coords):
-            pts.append(gmsh.model.geo.addPoint(v[0], v[1], v[2], self.cfg.lcar))
+            if len(v) == 2:
+                pts.append(gmsh.model.geo.addPoint(v[0], v[1], self.cfg.lcar))
+            elif len(v) == 3:
+                pts.append(gmsh.model.geo.addPoint(v[0], v[1], v[2], self.cfg.lcar))
 
         for i, c in enumerate(cells_array):
             lines.append(gmsh.model.geo.addLine(pts[c[0]], pts[c[1]]))
@@ -76,15 +78,14 @@ class NetworkGraph(nx.DiGraph):
         gmsh.model.mesh.generate(1)
 
         self.msh, self.subdomains, self.boundaries = io.gmshio.model_to_mesh(
-            gmsh.model, comm=MPI.COMM_WORLD, rank=0, gdim=3)
-        gmsh.finalize()
+            gmsh.model, comm=MPI.COMM_WORLD, rank=0, gdim=self.geom_dim)
 
-        if MPI.COMM_WORLD.rank == 0:
-            print("Nb vertices = ", self.msh.topology.index_map(0).size_global)
         if self.cfg.export:
             with io.XDMFFile(self.comm, self.cfg.outdir + "/mesh/mesh.xdmf", "w") as file:
                 file.write_mesh(self.msh)
                 file.write_meshtags(self.subdomains)
+            gmsh.write(self.cfg.outdir + "/mesh/mesh.msh")
+        gmsh.finalize()
 
     @timeit
     def build_network_submeshes(self):
@@ -115,9 +116,13 @@ class NetworkGraph(nx.DiGraph):
 
             for i, e in enumerate(self.in_edges(v)):
                 e_msh = self.edges[e]['submesh']
-                entities = mesh.locate_entities(e_msh, 0, lambda x: np.logical_and(np.isclose(x[0], self.nodes[v]['pos'][0]),
-                                                                                   np.isclose(x[1], self.nodes[v]['pos'][1]),
-                                                                                   np.isclose(x[2], self.nodes[v]['pos'][2])))
+                if len(self.nodes[v]['pos']) == 2:
+                    entities = mesh.locate_entities(e_msh, 0, lambda x: np.logical_and(np.isclose(x[0], self.nodes[v]['pos'][0]),
+                                                                                       np.isclose(x[1], self.nodes[v]['pos'][1])))
+                else:
+                    entities = mesh.locate_entities(e_msh, 0, lambda x: np.logical_and(np.isclose(x[0], self.nodes[v]['pos'][0]),
+                                                                                       np.isclose(x[1], self.nodes[v]['pos'][1]),
+                                                                                       np.isclose(x[2], self.nodes[v]['pos'][2])))
                 self.edges[e]["entities"].append(entities)
                 if bifurcation:
                     b_values_in = np.full(entities.shape, self.BIF_IN, np.intc)
@@ -127,9 +132,14 @@ class NetworkGraph(nx.DiGraph):
 
             for i, e in enumerate(self.out_edges(v)):
                 e_msh = self.edges[e]['submesh']
-                entities = mesh.locate_entities(e_msh, 0, lambda x: np.logical_and(np.isclose(x[0], self.nodes[v]['pos'][0]),
-                                                                                   np.isclose(x[1], self.nodes[v]['pos'][1]),
-                                                                                   np.isclose(x[2], self.nodes[v]['pos'][2])))
+                if len(self.nodes[v]['pos']) == 2:
+                    entities = mesh.locate_entities(e_msh, 0, lambda x: np.logical_and(np.isclose(x[0], self.nodes[v]['pos'][0]),
+                                                                                       np.isclose(x[1], self.nodes[v]['pos'][1])))
+                else:
+                    entities = mesh.locate_entities(e_msh, 0, lambda x: np.logical_and(np.isclose(x[0], self.nodes[v]['pos'][0]),
+                                                                                       np.isclose(x[1], self.nodes[v]['pos'][1]),
+                                                                                       np.isclose(x[2], self.nodes[v]['pos'][2])))
+
                 self.edges[e]["entities"].append(entities)
                 if bifurcation:
                     b_values_out = np.full(entities.shape, self.BIF_OUT, np.intc)
@@ -158,7 +168,7 @@ class NetworkGraph(nx.DiGraph):
         boun_in = []
         boun_out = []
 
-        DG0 = fem.VectorFunctionSpace(self.msh, ("DG", 0), dim=self.msh.geometry.dim)
+        DG0 = fem.VectorFunctionSpace(self.msh, ("DG", 0), dim=gdim)
         self.global_tangent = fem.Function(DG0)
 
         for i, (u, v) in enumerate(self.edges):
@@ -175,9 +185,9 @@ class NetworkGraph(nx.DiGraph):
             vf_edge = [val.item() for val in self.edges[(u, v)]["vf"].values]
 
             if self.BOUN_IN in vf_edge:
-                boun_in.append(dof_coords[vf_edge.index(self.BOUN_IN)])
+                boun_in.append(dof_coords[vf_edge.index(self.BOUN_IN)][0:gdim])
             if self.BOUN_OUT in vf_edge:
-                boun_out.append(dof_coords[vf_edge.index(self.BOUN_OUT)])
+                boun_out.append(dof_coords[vf_edge.index(self.BOUN_OUT)][0:gdim])
 
         assert len(boun_in) > 0 and len(boun_out) > 0, \
             "Error in submeshes markers : Need at least one inlet and one outlet"
