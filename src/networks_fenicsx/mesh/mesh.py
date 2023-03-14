@@ -189,10 +189,24 @@ class NetworkGraph(nx.DiGraph):
             if self.BOUN_OUT in vf_edge:
                 boun_out.append(dof_coords[vf_edge.index(self.BOUN_OUT)][0:gdim])
 
-        assert len(boun_in) > 0 and len(boun_out) > 0, \
-            "Error in submeshes markers : Need at least one inlet and one outlet"
-        global_dir = boun_out[0] - boun_in[0]
-        global_dir[0] = 0  # Global tangent oriented in the y direction
+        # Gather boun_in and boun_out lists to proc 0
+        boun_in_global = self.comm.gather(boun_in, root=0)
+        boun_out_global = self.comm.gather(boun_out, root=0)
+        if(self.comm.rank == 0):
+            assert len(boun_in_global) > 0 and len(boun_out_global) > 0, \
+                "Error in submeshes markers : Need at least one inlet and one outlet"
+
+            boun_in_0 = next(boun_in for boun_in in boun_in_global if len(boun_in) > 0)
+            boun_out_0 = next(boun_out for boun_out in boun_out_global if len(boun_out) > 0)
+
+            global_dir = boun_out_0[0] - boun_in_0[0]
+            global_dir[0] = 0  # Global tangent oriented in the y direction
+        else:
+            global_dir = None
+
+        # Broadcast global direction from root (0) to all processors
+        global_dir = self.comm.bcast(global_dir, root=0)
+        print("proc ", self.comm.rank, " - global dir = ", global_dir)
         global_dir_copy = copy.deepcopy(global_dir)
 
         for i, (u, v) in enumerate(self.edges):
