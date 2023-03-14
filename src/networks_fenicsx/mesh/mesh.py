@@ -192,7 +192,7 @@ class NetworkGraph(nx.DiGraph):
         # Gather boun_in and boun_out lists to proc 0
         boun_in_global = self.comm.gather(boun_in, root=0)
         boun_out_global = self.comm.gather(boun_out, root=0)
-        if(self.comm.rank == 0):
+        if self.comm.rank == 0:
             assert len(boun_in_global) > 0 and len(boun_out_global) > 0, \
                 "Error in submeshes markers : Need at least one inlet and one outlet"
 
