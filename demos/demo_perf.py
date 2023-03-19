@@ -32,7 +32,7 @@ cfg.clean = False
 p = Path(cfg.outdir)
 p.mkdir(exist_ok=True)
 
-for n in range(2, 8):
+for n in range(5, 6):
 
     if MPI.COMM_WORLD.rank == 0:
         print('Clearing cache')

@@ -23,6 +23,7 @@ class Assembler():
     def __init__(self, config: config.Config, graph: mesh.NetworkGraph):
         self.G = graph
         self.function_spaces = None
+        self.lm_function_spaces = None
         self.a = None
         self.L = None
         self.A = None
@@ -65,6 +66,27 @@ class Assembler():
 
         return b
 
+    def jump_form(self, lmbda, q, ix, j):
+        edge_list = list(self.G.edges.keys())
+
+        # Iitialize form to zero
+        a = 0.0
+
+        # Add point integrals (jump)
+        for i, e in enumerate(self.G.in_edges(j)):
+            ds_edge = Measure('ds', domain=self.G.edges[e]['submesh'], subdomain_data=self.G.edges[e]['vf'])
+            edge_ix = edge_list.index(e)
+            if ix == edge_ix:
+                a += lmbda * q * ds_edge(self.G.BIF_IN)
+
+        for i, e in enumerate(self.G.out_edges(j)):
+            ds_edge = Measure('ds', domain=self.G.edges[e]['submesh'], subdomain_data=self.G.edges[e]['vf'])
+            edge_ix = edge_list.index(e)
+            if ix == edge_ix:
+                a -= lmbda * q * ds_edge(self.G.BIF_OUT)
+
+        return a
+
     @timeit
     def compute_forms(self, f=None, p_bc_ex=None):
         '''
@@ -106,12 +128,21 @@ class Assembler():
 
         self.function_spaces = Pqs + [Pp]
 
+        self.lm_function_spaces = [
+            fem.FunctionSpace(self.G.lm_smsh, ("Discontinuous Lagrange", 0)) for i in self.G.bifurcation_ixs]
+
         # Fluxes on each branch
         qs = []
         vs = []
         for Pq in Pqs:
             qs.append(TrialFunction(Pq))
             vs.append(TestFunction(Pq))
+
+        lmbdas = []
+        mus = []
+        for fs in self.lm_function_spaces:
+            lmbdas.append(TrialFunction(fs))
+            mus.append(TestFunction(fs))
 
         # Pressure
         p = TrialFunction(Pp)
@@ -126,8 +157,9 @@ class Assembler():
         self.jump_vectors = [[self.jump_vector(q, ix, j) for j in self.G.bifurcation_ixs] for ix, q in enumerate(qs)]
 
         # Initialize forms
-        self.a = [[None] * (len(submeshes) + 1) for i in range(len(submeshes) + 1)]
-        self.L = [None] * (len(submeshes) + 1)
+        num_forms = len(submeshes) + len(self.G.bifurcation_ixs) + 1
+        self.a = [[None] * (num_forms) for i in range(num_forms)]
+        self.L = [None] * (num_forms)
 
         # Build the global entity map
         entity_maps = {}
@@ -151,6 +183,9 @@ class Assembler():
             p_bc.interpolate(p_bc_ex.eval)
 
             self.L[i] = fem.form(p_bc * vs[i] * ds_edge(self.G.BOUN_IN) - p_bc * vs[i] * ds_edge(self.G.BOUN_OUT))
+
+            for j in self.G.bifurcation_ixs:
+                self.jump_form(lmbdas[i], qs[i], i, j)
 
         # Add zero to uninitialized diagonal blocks (needed by petsc)
         zero = fem.Function(Pp)
