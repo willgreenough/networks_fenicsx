@@ -157,9 +157,11 @@ class Assembler():
         self.jump_vectors = [[self.jump_vector(q, ix, j) for j in self.G.bifurcation_ixs] for ix, q in enumerate(qs)]
 
         # Initialize forms
-        num_forms = len(submeshes) + len(self.G.bifurcation_ixs) + 1
-        self.a = [[None] * (num_forms) for i in range(num_forms)]
-        self.L = [None] * (num_forms)
+        num_qs = len(submeshes)
+        num_bifs = len(self.G.bifurcation_ixs)
+        num_forms = num_qs + num_bifs + 1
+        self.a = [[None] * num_forms for i in range(num_forms)]
+        self.L = [None] * num_forms
 
         # Build the global entity map
         entity_maps = {}
@@ -174,8 +176,8 @@ class Assembler():
             ds_edge = Measure('ds', domain=submsh, subdomain_data=self.G.edges[e]['vf'])
 
             self.a[i][i] = fem.form(qs[i] * vs[i] * dx_edge)
-            self.a[-1][i] = fem.form(phi * self.dds(qs[i]) * dx_edge, entity_maps=entity_maps)
-            self.a[i][-1] = fem.form(-p * self.dds(vs[i]) * dx_edge, entity_maps=entity_maps)
+            self.a[num_qs][i] = fem.form(phi * self.dds(qs[i]) * dx_edge, entity_maps=entity_maps)
+            self.a[i][num_qs] = fem.form(-p * self.dds(vs[i]) * dx_edge, entity_maps=entity_maps)
 
             # Boundary condition on the correct space
             P1_e = fem.FunctionSpace(self.G.edges[e]['submesh'], ("Lagrange", 1))
@@ -184,13 +186,16 @@ class Assembler():
 
             self.L[i] = fem.form(p_bc * vs[i] * ds_edge(self.G.BOUN_IN) - p_bc * vs[i] * ds_edge(self.G.BOUN_OUT))
 
-            for j in self.G.bifurcation_ixs:
-                self.jump_form(lmbdas[i], qs[i], i, j)
+            for j, bix in enumerate(self.G.bifurcation_ixs):
+                # TODO fem.form and add None
+                entity_maps = {self.G.lm_smsh: np.zeros(1, dtype=np.int32)}
+                self.a[num_qs + 1 + j][i] = fem.form(self.jump_form(mus[j], qs[i], i, bix), entity_maps=entity_maps)
+                self.a[i][num_qs + 1 + j] = fem.form(self.jump_form(lmbdas[j], vs[i], i, bix), entity_maps=entity_maps)
 
         # Add zero to uninitialized diagonal blocks (needed by petsc)
         zero = fem.Function(Pp)
-        self.a[-1][-1] = fem.form(zero * p * phi * dx_zero)
-        self.L[-1] = fem.form(zero * phi * dx_zero)
+        self.a[num_qs][num_qs] = fem.form(zero * p * phi * dx_zero)
+        self.L[num_qs] = fem.form(zero * phi * dx_zero)
 
     @timeit
     def assemble(self):
