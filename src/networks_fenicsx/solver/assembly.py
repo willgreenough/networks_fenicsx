@@ -39,7 +39,7 @@ class Assembler():
     def jump_form(self, lmbda, q, ix, j):
         edge_list = list(self.G.edges.keys())
 
-        # Iitialize form to zero
+        # Initialize form to zero
         a = 0.0
 
         # Add point integrals (jump)
@@ -55,6 +55,7 @@ class Assembler():
             if ix == edge_ix:
                 a -= lmbda * q * ds_edge(self.G.BIF_OUT)
 
+        # FIXME Do this properly
         if a == 0.0:
             a = None
 
@@ -179,7 +180,6 @@ class Assembler():
         A.assemble()
         b = fem.petsc.assemble_vector_block(L, a)
         b.assemble()
-
 
         self.A = A
         self.b = b
