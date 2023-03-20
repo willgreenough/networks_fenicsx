@@ -85,6 +85,9 @@ class Assembler():
             if ix == edge_ix:
                 a -= lmbda * q * ds_edge(self.G.BIF_OUT)
 
+        if a == 0.0:
+            a = None
+
         return a
 
     @timeit
@@ -186,11 +189,13 @@ class Assembler():
 
             self.L[i] = fem.form(p_bc * vs[i] * ds_edge(self.G.BOUN_IN) - p_bc * vs[i] * ds_edge(self.G.BOUN_OUT))
 
+            import ufl
             for j, bix in enumerate(self.G.bifurcation_ixs):
                 # TODO fem.form and add None
                 entity_maps = {self.G.lm_smsh: np.zeros(1, dtype=np.int32)}
                 self.a[num_qs + 1 + j][i] = fem.form(self.jump_form(mus[j], qs[i], i, bix), entity_maps=entity_maps)
                 self.a[i][num_qs + 1 + j] = fem.form(self.jump_form(lmbdas[j], vs[i], i, bix), entity_maps=entity_maps)
+                self.L[num_qs + 1 + j] = fem.form(1e-16 * mus[j] * ufl.dx)
 
         # Add zero to uninitialized diagonal blocks (needed by petsc)
         zero = fem.Function(Pp)
@@ -204,54 +209,54 @@ class Assembler():
         L = self.linear_forms()
 
         # Assemble system from the given forms
-        _A = fem.petsc.assemble_matrix_block(a)
-        _A.assemble()
-        _b = fem.petsc.assemble_vector_block(L, a)
-        _b.assemble()
-
-        # Get  values form A to be inserted in new bigger matrix A_new
-        _A_size = _A.getSize()
-        _b_size = _b.getSize()
-        _A_values = _A.getValues(range(_A_size[0]), range(_A_size[1]))
-        _b_values = _b.getValues(range(_b_size))
-
-        # Build new system to include Lagrange multipliers for the bifurcation conditions
-        num_bifs = len(self.G.bifurcation_ixs)
-        A = PETSc.Mat().create()
-        A.setSizes(list(map(add, _A_size, (num_bifs, num_bifs))))
-        A.setUp()
-
-        # b is fine
-        b = PETSc.Vec().create()
-        b.setSizes(_b_size + num_bifs)
-        b.setUp()
-
-        # Copy _A and _b values into (bigger) system
-        A.setValuesBlocked(range(_A_size[0]), range(_A_size[1]), _A_values)
-        b.setValuesBlocked(range(_b_size), _b_values)
-
-        # Convert to PETSc.Mat() object
-        jump_vecs = [[petsc_utils.convert_vec_to_petscmatrix(b_row) for b_row in qi] for qi in self.jump_vectors]
-
-        # Insert jump vectors into A_new
-        for i in range(0, num_bifs):
-            for j in range(0, self.G.num_edges):
-                jump_vec = jump_vecs[j][i]
-                jump_vec_values = jump_vec.getValues(range(jump_vec.getSize()[0]), range(jump_vec.getSize()[1]))[0]
-                A.setValuesBlocked(_A_size[0] + i,
-                                   range(jump_vec.getSize()[1] * j,
-                                         jump_vec.getSize()[1] * (j + 1)),
-                                   jump_vec_values)
-                jump_vec.transpose()
-                jump_vec_T_values = jump_vec.getValues(range(jump_vec.getSize()[0]), range(jump_vec.getSize()[1]))
-                A.setValuesBlocked(range(jump_vec.getSize()[0] * j,
-                                         jump_vec.getSize()[0] * (j + 1)),
-                                   _A_size[1] + i,
-                                   jump_vec_T_values)
-
-        # Assembling A and b
+        A = fem.petsc.assemble_matrix_block(a)
         A.assemble()
+        b = fem.petsc.assemble_vector_block(L, a)
         b.assemble()
+
+        # # Get  values form A to be inserted in new bigger matrix A_new
+        # _A_size = _A.getSize()
+        # _b_size = _b.getSize()
+        # _A_values = _A.getValues(range(_A_size[0]), range(_A_size[1]))
+        # _b_values = _b.getValues(range(_b_size))
+
+        # # Build new system to include Lagrange multipliers for the bifurcation conditions
+        # num_bifs = len(self.G.bifurcation_ixs)
+        # A = PETSc.Mat().create()
+        # A.setSizes(list(map(add, _A_size, (num_bifs, num_bifs))))
+        # A.setUp()
+
+        # # b is fine
+        # b = PETSc.Vec().create()
+        # b.setSizes(_b_size + num_bifs)
+        # b.setUp()
+
+        # # Copy _A and _b values into (bigger) system
+        # A.setValuesBlocked(range(_A_size[0]), range(_A_size[1]), _A_values)
+        # b.setValuesBlocked(range(_b_size), _b_values)
+
+        # # Convert to PETSc.Mat() object
+        # jump_vecs = [[petsc_utils.convert_vec_to_petscmatrix(b_row) for b_row in qi] for qi in self.jump_vectors]
+
+        # # Insert jump vectors into A_new
+        # for i in range(0, num_bifs):
+        #     for j in range(0, self.G.num_edges):
+        #         jump_vec = jump_vecs[j][i]
+        #         jump_vec_values = jump_vec.getValues(range(jump_vec.getSize()[0]), range(jump_vec.getSize()[1]))[0]
+        #         A.setValuesBlocked(_A_size[0] + i,
+        #                            range(jump_vec.getSize()[1] * j,
+        #                                  jump_vec.getSize()[1] * (j + 1)),
+        #                            jump_vec_values)
+        #         jump_vec.transpose()
+        #         jump_vec_T_values = jump_vec.getValues(range(jump_vec.getSize()[0]), range(jump_vec.getSize()[1]))
+        #         A.setValuesBlocked(range(jump_vec.getSize()[0] * j,
+        #                                  jump_vec.getSize()[0] * (j + 1)),
+        #                            _A_size[1] + i,
+        #                            jump_vec_T_values)
+
+        # # Assembling A and b
+        # A.assemble()
+        # b.assemble()
 
         self.A = A
         self.b = b
