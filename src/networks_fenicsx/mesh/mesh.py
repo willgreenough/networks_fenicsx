@@ -88,6 +88,7 @@ class NetworkGraph(nx.DiGraph):
             gmsh.write(self.cfg.outdir + "/mesh/mesh.msh")
         gmsh.finalize()
 
+        # Submesh for the Lagrange multiplier
         self.lm_smsh = mesh.create_submesh(self.msh, self.msh.topology.dim, [0])[0]
 
     @timeit
