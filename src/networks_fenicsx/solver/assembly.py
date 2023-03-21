@@ -36,6 +36,38 @@ class Assembler():
         '''
         return dot(grad(f), self.G.global_tangent)
 
+    # Compute jump vector when Lagrange multipliers are manually inserted in the matrix
+    def jump_vector(self, q, ix, j):
+        '''
+        Returns the signed jump vector for a flux function q on edge ix
+        over bifurcation j
+        '''
+
+        edge_list = list(self.G.edges.keys())
+
+        # Iitialize form to zero
+        zero = fem.Function(q.ufl_function_space())
+        L = zero * q * dx
+
+        # Add point integrals (jump)
+        for i, e in enumerate(self.G.in_edges(j)):
+            ds_edge = Measure('ds', domain=self.G.edges[e]['submesh'], subdomain_data=self.G.edges[e]['vf'])
+            edge_ix = edge_list.index(e)
+            if ix == edge_ix:
+                L += q * ds_edge(self.G.BIF_IN)
+
+        for i, e in enumerate(self.G.out_edges(j)):
+            ds_edge = Measure('ds', domain=self.G.edges[e]['submesh'], subdomain_data=self.G.edges[e]['vf'])
+            edge_ix = edge_list.index(e)
+            if ix == edge_ix:
+                L -= q * ds_edge(self.G.BIF_OUT)
+
+        L = fem.form(L)
+        b = fem.petsc.assemble_vector(L)
+
+        return b
+
+    # Compute jump forms when Lagrange multipliers are part of the mixed-dimensional variational formulation
     def jump_form(self, lmbda, q, ix, j):
         edge_list = list(self.G.edges.keys())
 
@@ -115,9 +147,12 @@ class Assembler():
         # Lagrange multipliers
         lmbdas = []
         mus = []
-        for fs in self.lm_function_spaces:
-            lmbdas.append(TrialFunction(fs))
-            mus.append(TestFunction(fs))
+        if self.cfg.lm_spaces:
+            for fs in self.lm_function_spaces:
+                lmbdas.append(TrialFunction(fs))
+                mus.append(TestFunction(fs))
+        else:
+            self.jump_vectors = [[self.jump_vector(q, ix, j) for j in self.G.bifurcation_ixs] for ix, q in enumerate(qs)]
 
         # Pressure
         p = TrialFunction(Pp)
@@ -130,7 +165,7 @@ class Assembler():
 
         # Initialize forms
         num_qs = len(submeshes)
-        num_lmbdas = len(self.G.bifurcation_ixs)
+        num_lmbdas = len(lmbdas)
         num_blocks = num_qs + num_lmbdas + 1
         self.a = [[None] * num_blocks for i in range(num_blocks)]
         self.L = [None] * num_blocks
@@ -158,11 +193,12 @@ class Assembler():
 
             self.L[i] = fem.form(p_bc * vs[i] * ds_edge(self.G.BOUN_IN) - p_bc * vs[i] * ds_edge(self.G.BOUN_OUT))
 
-            for j, bix in enumerate(self.G.bifurcation_ixs):
-                entity_maps = {self.G.lm_smsh: np.zeros(1, dtype=np.int32)}
-                self.a[num_qs + 1 + j][i] = fem.form(self.jump_form(mus[j], qs[i], i, bix), entity_maps=entity_maps)
-                self.a[i][num_qs + 1 + j] = fem.form(self.jump_form(lmbdas[j], vs[i], i, bix), entity_maps=entity_maps)
-                self.L[num_qs + 1 + j] = fem.form(1e-16 * mus[j] * dx)  # TODO Use constant
+            if self.cfg.lm_spaces:
+                for j, bix in enumerate(self.G.bifurcation_ixs):
+                    entity_maps = {self.G.lm_smsh: np.zeros(1, dtype=np.int32)}
+                    self.a[num_qs + 1 + j][i] = fem.form(self.jump_form(mus[j], qs[i], i, bix), entity_maps=entity_maps)
+                    self.a[i][num_qs + 1 + j] = fem.form(self.jump_form(lmbdas[j], vs[i], i, bix), entity_maps=entity_maps)
+                    self.L[num_qs + 1 + j] = fem.form(1e-16 * mus[j] * dx)  # TODO Use constant
 
         # Add zero to uninitialized diagonal blocks (needed by petsc)
         zero = fem.Function(Pp)
@@ -181,10 +217,57 @@ class Assembler():
         b = fem.petsc.assemble_vector_block(L, a)
         b.assemble()
 
-        self.A = A
-        self.b = b
+        if self.cfg.lm_spaces:
+            self.A = A
+            self.b = b
+            return (A, b)
+        else:
+            _A_size = A.getSize()
+            _b_size = b.getSize()
 
-        return (A, b)
+            _A_values = A.getValues(range(_A_size[0]), range(_A_size[1]))
+            _b_values = b.getValues(range(_b_size))
+
+            # Build new system to include Lagrange multipliers for the bifurcation conditions
+            num_bifs = len(self.G.bifurcation_ixs)
+            A_ = PETSc.Mat().create()
+            A_.setSizes(list(map(add, _A_size, (num_bifs, num_bifs))))
+            A_.setUp()
+
+            b_ = PETSc.Vec().create()
+            b_.setSizes(_b_size + num_bifs)
+            b_.setUp()
+
+            # Copy _A and _b values into (bigger) system
+            A_.setValuesBlocked(range(_A_size[0]), range(_A_size[1]), _A_values)
+            b_.setValuesBlocked(range(_b_size), _b_values)
+
+            # Convert to PETSc.Mat() object
+            jump_vecs = [[petsc_utils.convert_vec_to_petscmatrix(b_row) for b_row in qi] for qi in self.jump_vectors]
+
+            # Insert jump vectors into A_new
+            for i in range(0, num_bifs):
+                for j in range(0, self.G.num_edges):
+                    jump_vec = jump_vecs[j][i]
+                    jump_vec_values = jump_vec.getValues(range(jump_vec.getSize()[0]), range(jump_vec.getSize()[1]))[0]
+                    A_.setValuesBlocked(_A_size[0] + i,
+                                        range(jump_vec.getSize()[1] * j,
+                                              jump_vec.getSize()[1] * (j + 1)),
+                                        jump_vec_values)
+                    jump_vec.transpose()
+                    jump_vec_T_values = jump_vec.getValues(range(jump_vec.getSize()[0]), range(jump_vec.getSize()[1]))
+                    A_.setValuesBlocked(range(jump_vec.getSize()[0] * j,
+                                              jump_vec.getSize()[0] * (j + 1)),
+                                        _A_size[1] + i,
+                                        jump_vec_T_values)
+
+            # Assembling A and b
+            A_.assemble()
+            b_.assemble()
+
+            self.A = A_
+            self.b = b_
+            return (A_, b_)
 
     def bilinear_forms(self):
         if self.a is None:
