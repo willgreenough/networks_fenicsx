@@ -5,6 +5,7 @@ from typing import Dict, List
 from mpi4py import MPI
 
 import pandas as pd
+from networks_fenicsx import config
 
 
 def timeit(func):
@@ -31,13 +32,13 @@ def timeit(func):
     return wrapper
 
 
-def timing_dict(outdir_path: str):
+def timing_dict(config: config.Config):
     """
     Read 'profiling.txt' and create a dictionary out of it
     Args:
        str : outdir path
     """
-    p = Path(outdir_path)
+    p = Path(config.outdir)
     timing_file = (p / 'profiling.txt').open('r')
     timing_dict: Dict[str, List[float]] = dict()
 
@@ -54,13 +55,13 @@ def timing_dict(outdir_path: str):
     return timing_dict
 
 
-def timing_table(outdir_path: str):
+def timing_table(config: config.Config):
     """
     Read 'profiling.txt' and create a table data file
     Args:
        str : outdir path
     """
-    t_dict = timing_dict(outdir_path)
+    t_dict = timing_dict(config)
 
     if MPI.COMM_WORLD.rank == 0:
         df = pd.DataFrame({
@@ -69,4 +70,9 @@ def timing_table(outdir_path: str):
             'assembly': t_dict["assemble"],
             'solve': t_dict["solve"]})
 
-        df.to_csv(outdir_path + '/timings.txt', sep='\t', index=False)
+        if config.lm_spaces:
+            df.to_csv(config.outdir + '/timings_lm_spaces.txt', sep='\t', index=False)
+        else:
+            df.to_csv(config.outdir + '/timings_jump_vectors.txt', sep='\t', index=False)
+
+    return t_dict

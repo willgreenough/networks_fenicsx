@@ -63,9 +63,8 @@ class Assembler():
                 L -= q * ds_edge(self.G.BIF_OUT)
 
         L = fem.form(L)
-        b = fem.petsc.assemble_vector(L)
 
-        return b
+        return L
 
     # Compute jump forms when Lagrange multipliers are part of the mixed-dimensional variational formulation
     def jump_form(self, lmbda, q, ix, j):
@@ -152,7 +151,7 @@ class Assembler():
                 lmbdas.append(TrialFunction(fs))
                 mus.append(TestFunction(fs))
         else:
-            self.jump_vectors = [[self.jump_vector(q, ix, j) for j in self.G.bifurcation_ixs] for ix, q in enumerate(qs)]
+            self.L_jumps = [[self.jump_vector(q, ix, j) for j in self.G.bifurcation_ixs] for ix, q in enumerate(qs)]
 
         # Pressure
         p = TrialFunction(Pp)
@@ -242,7 +241,8 @@ class Assembler():
             A_.setValuesBlocked(range(_A_size[0]), range(_A_size[1]), _A_values)
             b_.setValuesBlocked(range(_b_size), _b_values)
 
-            # Convert to PETSc.Mat() object
+            # Assemble jump vectors and convert to PETSc.Mat() object
+            self.jump_vectors = [[fem.petsc.assemble_vector(L) for L in qi] for qi in self.L_jumps]
             jump_vecs = [[petsc_utils.convert_vec_to_petscmatrix(b_row) for b_row in qi] for qi in self.jump_vectors]
 
             # Insert jump vectors into A_new
