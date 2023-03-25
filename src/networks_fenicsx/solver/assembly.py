@@ -105,7 +105,9 @@ class Assembler():
            f (dolfinx.fem.function): source term
            p_bc (class): neumann bc for pressure
         '''
+        import time
 
+        start = time.time()
         if f is None:
             f = Constant(self.G.msh, 0)
 
@@ -172,6 +174,12 @@ class Assembler():
         # Build the global entity map
         entity_maps = {}
 
+        end = time.time()
+
+        # print(end - start)
+
+        start = time.time()
+
         # Assemble edge contributions to a and L
         for i, e in enumerate(self.G.edges):
 
@@ -192,17 +200,41 @@ class Assembler():
 
             self.L[i] = fem.form(p_bc * vs[i] * ds_edge(self.G.BOUN_IN) - p_bc * vs[i] * ds_edge(self.G.BOUN_OUT))
 
-            if self.cfg.lm_spaces:
-                for j, bix in enumerate(self.G.bifurcation_ixs):
-                    entity_maps = {self.G.lm_smsh: np.zeros(1, dtype=np.int32)}
-                    self.a[num_qs + 1 + j][i] = fem.form(self.jump_form(mus[j], qs[i], i, bix), entity_maps=entity_maps)
-                    self.a[i][num_qs + 1 + j] = fem.form(self.jump_form(lmbdas[j], vs[i], i, bix), entity_maps=entity_maps)
-                    self.L[num_qs + 1 + j] = fem.form(1e-16 * mus[j] * dx)  # TODO Use constant
+        if self.cfg.lm_spaces:
+            edge_list = list(self.G.edges.keys())
+            entity_maps = {self.G.lm_smsh: np.zeros(1, dtype=np.int32)}
+            for j, bix in enumerate(self.G.bifurcation_ixs):
+                # Add point integrals (jump)
+                for i, e in enumerate(self.G.in_edges(j)):
+                    ds_edge = Measure('ds', domain=self.G.edges[e]['submesh'], subdomain_data=self.G.edges[e]['vf'])
+                    edge_ix = edge_list.index(e)
+                    assert self.a[num_qs + 1 + j][edge_ix] is None
+                    assert self.a[edge_ix][num_qs + 1 + j] is None
+
+                    self.a[num_qs + 1 + j][edge_ix] = fem.form(mus[j] * qs[edge_ix] * ds_edge(self.G.BIF_IN), entity_maps=entity_maps)
+                    self.a[edge_ix][num_qs + 1 + j] = fem.form(lmbdas[j] * vs[edge_ix] * ds_edge(self.G.BIF_IN), entity_maps=entity_maps)
+
+                for i, e in enumerate(self.G.out_edges(j)):
+                    ds_edge = Measure('ds', domain=self.G.edges[e]['submesh'], subdomain_data=self.G.edges[e]['vf'])
+                    edge_ix = edge_list.index(e)
+                    assert self.a[num_qs + 1 + j][edge_ix] is None
+                    assert self.a[edge_ix][num_qs + 1 + j] is None
+
+                    self.a[num_qs + 1 + j][edge_ix] = fem.form(- mus[j] * qs[edge_ix] * ds_edge(self.G.BIF_OUT), entity_maps=entity_maps)
+                    self.a[edge_ix][num_qs + 1 + j] = fem.form(- lmbdas[j] * vs[edge_ix] * ds_edge(self.G.BIF_OUT), entity_maps=entity_maps)
+
+                # self.a[num_qs + 1 + j][i] = fem.form(self.jump_form(mus[j], qs[i], i, bix), entity_maps=entity_maps)
+                # self.a[i][num_qs + 1 + j] = fem.form(self.jump_form(lmbdas[j], vs[i], i, bix), entity_maps=entity_maps)
+                self.L[num_qs + 1 + j] = fem.form(1e-16 * mus[j] * dx)  # TODO Use constant
 
         # Add zero to uninitialized diagonal blocks (needed by petsc)
         zero = fem.Function(Pp)
         self.a[num_qs][num_qs] = fem.form(zero * p * phi * dx_zero)
         self.L[num_qs] = fem.form(zero * phi * dx_zero)
+
+        end = time.time()
+
+        # print(end - start)
 
     @timeit
     def assemble(self):
