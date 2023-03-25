@@ -205,7 +205,7 @@ class Assembler():
             entity_maps = {self.G.lm_smsh: np.zeros(1, dtype=np.int32)}
             for j, bix in enumerate(self.G.bifurcation_ixs):
                 # Add point integrals (jump)
-                for i, e in enumerate(self.G.in_edges(j)):
+                for i, e in enumerate(self.G.in_edges(bix)):
                     ds_edge = Measure('ds', domain=self.G.edges[e]['submesh'], subdomain_data=self.G.edges[e]['vf'])
                     edge_ix = edge_list.index(e)
                     assert self.a[num_qs + 1 + j][edge_ix] is None
@@ -214,7 +214,7 @@ class Assembler():
                     self.a[num_qs + 1 + j][edge_ix] = fem.form(mus[j] * qs[edge_ix] * ds_edge(self.G.BIF_IN), entity_maps=entity_maps)
                     self.a[edge_ix][num_qs + 1 + j] = fem.form(lmbdas[j] * vs[edge_ix] * ds_edge(self.G.BIF_IN), entity_maps=entity_maps)
 
-                for i, e in enumerate(self.G.out_edges(j)):
+                for i, e in enumerate(self.G.out_edges(bix)):
                     ds_edge = Measure('ds', domain=self.G.edges[e]['submesh'], subdomain_data=self.G.edges[e]['vf'])
                     edge_ix = edge_list.index(e)
                     assert self.a[num_qs + 1 + j][edge_ix] is None
