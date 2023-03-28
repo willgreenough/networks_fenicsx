@@ -33,6 +33,7 @@ class NetworkGraph(nx.DiGraph):
         self.boundary_ixs: List[int] = []  # noqa: F821
 
         self.msh = None
+        self.lm_smsh = None
         self.subdomains = None
         self.boundaries = None
         self.global_tangent = None
@@ -86,6 +87,9 @@ class NetworkGraph(nx.DiGraph):
                 file.write_meshtags(self.subdomains)
             gmsh.write(self.cfg.outdir + "/mesh/mesh.msh")
         gmsh.finalize()
+
+        # Submesh for the Lagrange multiplier
+        self.lm_smsh = mesh.create_submesh(self.msh, self.msh.topology.dim, [0])[0]
 
     @timeit
     def build_network_submeshes(self):

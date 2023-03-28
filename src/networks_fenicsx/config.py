@@ -7,6 +7,7 @@ import shutil
 @dataclass
 class Config:
     outdir: str = "results"
+    lm_spaces: bool = True
     lcar: float = 1.0
     flux_degree: int = 2
     pressure_degree: int = 1

@@ -6,15 +6,18 @@ from mpi4py import MPI
 from networks_fenicsx.mesh import mesh_generation
 from networks_fenicsx.solver import assembly, solver
 from networks_fenicsx.config import Config
-from networks_fenicsx.utils.timers import timing_dict, timing_table
-from networks_fenicsx.utils.post_processing import export  # , perf_plot
+from networks_fenicsx.utils.timers import timing_table
+from networks_fenicsx.utils.post_processing import export
 
 cfg = Config()
 cfg.outdir = "demo_perf"
 cfg.export = True
 
-cfg.flux_degree = 2
-cfg.pressure_degree = 1
+cfg.flux_degree = 3
+cfg.pressure_degree = 2
+
+# cfg.lm_spaces=False
+# cfg.lm_jump_vectors=True
 
 
 class p_bc_expr:
@@ -32,7 +35,7 @@ cfg.clean = False
 p = Path(cfg.outdir)
 p.mkdir(exist_ok=True)
 
-for n in range(2, 8):
+for n in range(2, 7):
 
     if MPI.COMM_WORLD.rank == 0:
         print('Clearing cache')
@@ -54,14 +57,7 @@ for n in range(2, 8):
     sol = solver_.solve()
     (fluxes, global_flux, pressure) = export(cfg, G, assembler.function_spaces, sol,
                                              export_dir="n" + str(n))
-    # for i, flux in enumerate(fluxes):
-    #     print("flux[", i, "] = ", flux.x.array)
-    # print("pressure  = ", pressure.x.array)
-    # print("q mean = ", np.mean(global_flux.x.array))
-
-t_dict = timing_dict(cfg.outdir)
-timing_table(cfg.outdir)
-# perf_plot(t_dict)
+t_dict = timing_table(cfg)
 
 print("n = ", t_dict["n"])
 print("compute_forms time = ", t_dict["compute_forms"])
