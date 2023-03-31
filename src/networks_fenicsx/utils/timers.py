@@ -19,13 +19,19 @@ def timeit(func):
         start = perf_counter()
         result = func(*args, **kwargs)
         end = perf_counter()
-        time_info = f'{func.__name__}: {end - start:.3f} s \n'
+        time = end - start
+
+        # In parallel, reduce this into average of time on each processors
+        sum_time = MPI.COMM_WORLD.reduce(time, op=MPI.SUM, root=0)
 
         # Write to profiling file
-        p = Path(args[0].cfg.outdir)
-        p.mkdir(exist_ok=True)
-        with (p / 'profiling.txt').open('a') as f:
-            f.write(time_info)
+        if MPI.COMM_WORLD.rank == 0:
+            avg_time = sum_time / MPI.COMM_WORLD.size
+            avg_time_info = f'{func.__name__}: {avg_time:.3f} s \n'  # sum_time / MPI.COMM_WORLD.size
+            p = Path(args[0].cfg.outdir)
+            p.mkdir(exist_ok=True)
+            with (p / 'profiling.txt').open('a') as f:
+                f.write(avg_time_info)
 
         return result
 

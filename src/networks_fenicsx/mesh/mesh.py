@@ -210,7 +210,6 @@ class NetworkGraph(nx.DiGraph):
 
         # Broadcast global direction from root (0) to all processors
         global_dir = self.comm.bcast(global_dir, root=0)
-        print("proc ", self.comm.rank, " - global dir = ", global_dir)
         global_dir_copy = copy.deepcopy(global_dir)
 
         for i, (u, v) in enumerate(self.edges):

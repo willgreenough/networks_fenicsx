@@ -10,14 +10,16 @@ from networks_fenicsx.utils.timers import timing_table
 from networks_fenicsx.utils.post_processing import export
 
 cfg = Config()
-cfg.outdir = "demo_perf"
+cfg.outdir = "demo_perf_lm_spaces"
 cfg.export = True
 
 cfg.flux_degree = 3
 cfg.pressure_degree = 2
 
-# cfg.lm_spaces=False
-# cfg.lm_jump_vectors=True
+cfg.lm_spaces = True
+cfg.lm_jump_vectors = False
+# cfg.lm_spaces = False
+# cfg.lm_jump_vectors = True
 
 
 class p_bc_expr:
@@ -57,9 +59,11 @@ for n in range(2, 7):
     sol = solver_.solve()
     (fluxes, global_flux, pressure) = export(cfg, G, assembler.function_spaces, sol,
                                              export_dir="n" + str(n))
+
 t_dict = timing_table(cfg)
 
-print("n = ", t_dict["n"])
-print("compute_forms time = ", t_dict["compute_forms"])
-print("assembly time = ", t_dict["assemble"])
-print("solve time = ", t_dict["solve"])
+if MPI.COMM_WORLD.rank == 0:
+    print("n = ", t_dict["n"])
+    print("compute_forms time = ", t_dict["compute_forms"])
+    print("assembly time = ", t_dict["assemble"])
+    print("solve time = ", t_dict["solve"])
