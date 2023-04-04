@@ -34,6 +34,7 @@ cfg.lcar = 2.0
 cfg.clean_dir()
 cfg.clean = False
 
+# cfg.outdir = cfg.outdir + "_cache0"
 p = Path(cfg.outdir)
 p.mkdir(exist_ok=True)
 
@@ -43,6 +44,40 @@ for n in range(2, 7):
         print('Clearing cache')
         os.system('rm -rf $HOME/.cache/fenics/')
 
+        with (p / 'profiling.txt').open('a') as f:
+            f.write("n: " + str(n) + "\n")
+
+    # Create tree
+    G = mesh_generation.make_tree(n=n, H=n, W=n, cfg=cfg)
+
+    assembler = assembly.Assembler(cfg, G)
+    # Compute forms
+    assembler.compute_forms(p_bc_ex=p_bc_expr())
+    # Assemble
+    assembler.assemble()
+    # Solve
+    solver_ = solver.Solver(cfg, G, assembler)
+    sol = solver_.solve()
+    (fluxes, global_flux, pressure) = export(cfg, G, assembler.function_spaces, sol,
+                                             export_dir="n" + str(n))
+
+t_dict = timing_table(cfg)
+
+if MPI.COMM_WORLD.rank == 0:
+    print("n = ", t_dict["n"])
+    print("compute_forms time = ", t_dict["compute_forms"])
+    print("assembly time = ", t_dict["assemble"])
+    print("solve time = ", t_dict["solve"])
+
+
+# Run again without clearing the cache
+cfg.outdir = cfg.outdir + "_cache1"
+p = Path(cfg.outdir)
+p.mkdir(exist_ok=True)
+
+for n in range(2, 7):
+
+    if MPI.COMM_WORLD.rank == 0:
         with (p / 'profiling.txt').open('a') as f:
             f.write("n: " + str(n) + "\n")
 
