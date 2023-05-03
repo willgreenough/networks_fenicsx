@@ -4,7 +4,7 @@ import numpy as np
 from networks_fenicsx.mesh import mesh_generation
 from networks_fenicsx.solver import assembly, solver
 from networks_fenicsx.config import Config
-
+from networks_fenicsx.utils.post_processing import export
 
 # Clear fenics cache
 print('Clearing cache')
@@ -31,4 +31,5 @@ assembler.compute_forms(p_bc_ex=p_bc_expr())
 assembler.assemble()
 
 solver = solver.Solver(cfg, G, assembler)
-(fluxes, pressure) = solver.solve()
+sol = solver.solve()
+(fluxes, global_flux, pressure) = export(cfg, G, assembler.function_spaces, sol)

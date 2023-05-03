@@ -198,6 +198,14 @@ def make_honeycomb(n, m, cfg: config.Config, dim=3):
 
     G = mesh.NetworkGraph(config=cfg, graph=G_)
 
+    # Hexagonal mesh contains edges directed in both directions
+    # Remove double defined edges (keep only one direction)
+    edges_to_remove = []
+    for (e1, e2) in G.edges():
+        if e2 < e1:
+            edges_to_remove.append((e1, e2))
+    G.remove_edges_from(edges_to_remove)
+
     # Add inlet (bottom left)
     G.add_node(len(G.nodes))
     G.nodes[len(G.nodes) - 1]["pos"] = [0, -1]
@@ -227,6 +235,11 @@ def make_honeycomb(n, m, cfg: config.Config, dim=3):
     if (outlet_node, inlet_node - 1) in G.edges():
         G.remove_edge(outlet_node, inlet_node - 1)
         G.add_edge(inlet_node - 1, outlet_node)
+
+    # 2D to 3D points if needed
+    if dim == 3:
+        for idx in range(len(G.nodes())):
+            G.nodes[idx]['pos'] = [G.nodes[idx]['pos'][0], G.nodes[idx]['pos'][1], 0]
 
     G.build_mesh()
     G.build_network_submeshes()
