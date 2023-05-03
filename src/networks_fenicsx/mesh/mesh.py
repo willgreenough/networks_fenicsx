@@ -22,8 +22,8 @@ class NetworkGraph(nx.DiGraph):
     Make FEniCSx mesh from networkx directed graph
     '''
 
-    def __init__(self, config: config.Config):
-        nx.DiGraph.__init__(self)
+    def __init__(self, config: config.Config, graph: nx.DiGraph = None):
+        nx.DiGraph.__init__(self, graph)
 
         self.comm = MPI.COMM_WORLD
         self.cfg = config

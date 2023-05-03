@@ -1,5 +1,7 @@
 from . import mesh
+import networkx as nx
 from networks_fenicsx import config
+import numpy as np
 
 
 def make_line_graph(n, cfg: config.Config, dim=3):
@@ -179,6 +181,52 @@ def make_tree(n: int, H: float, W: float, cfg: config.Config, dim=3):
     edges = tree_edges(nb_nodes, r)
     for (e0, e1) in list(edges):
         G.add_edge(e0, e1)
+
+    G.build_mesh()
+    G.build_network_submeshes()
+    G.build_markers()
+    G.compute_tangent()
+
+    return G
+
+
+def make_honeycomb(n, m, cfg: config.Config, dim=3):
+
+    # Make hexagonal mesh
+    G_ = nx.hexagonal_lattice_graph(n, m)
+    G_ = nx.convert_node_labels_to_integers(G_)
+
+    G = mesh.NetworkGraph(config=cfg, graph=G_)
+
+    # Add inlet (bottom left)
+    G.add_node(len(G.nodes))
+    G.nodes[len(G.nodes) - 1]["pos"] = [0, -1]
+    G.add_edge(len(G.nodes) - 1, 0)
+
+    inlet_node = len(G.nodes) - 1
+    outlet_node = len(G.nodes)
+
+    # Add outlet (top right)
+    pos = nx.get_node_attributes(G, "pos")
+    all_coords = np.asarray(list(pos.values()))
+    all_node_dist_from_origin = np.linalg.norm(all_coords, axis=1)
+    furthest_node_ix = np.argmax(all_node_dist_from_origin, axis=0)
+    coord_furthest_node = all_coords[furthest_node_ix, :]
+
+    # Add new node a bit above the furthest one
+    G.add_node(outlet_node)
+    G.nodes[len(G.nodes) - 1]["pos"] = coord_furthest_node + np.asarray([0.7, 1])
+    G.add_edge(len(G.nodes) - 1, furthest_node_ix)
+
+    # The inlet edge might be oriented outwards, we want it inwards
+    if (0, inlet_node) in G.edges():
+        G.remove_edge(0, inlet_node)
+        G.add_edge(inlet_node, 0)
+
+    # The outlet edge might be oriented inwards, we want it outwards
+    if (outlet_node, inlet_node - 1) in G.edges():
+        G.remove_edge(outlet_node, inlet_node - 1)
+        G.add_edge(inlet_node - 1, outlet_node)
 
     G.build_mesh()
     G.build_network_submeshes()
