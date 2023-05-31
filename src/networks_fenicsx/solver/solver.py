@@ -5,6 +5,8 @@ from networks_fenicsx.solver import assembly
 from networks_fenicsx.utils.timers import timeit
 from networks_fenicsx import config
 
+from mpi4py import MPI
+
 
 class Solver():
 
@@ -26,8 +28,10 @@ class Solver():
 
         ksp.setType("preonly")
         ksp.getPC().setType("lu")
-        # ksp.getPC().setFactorSolverType("superlu_dist") # Not giving correct solution
-        ksp.getPC().setFactorSolverType("umfpack")
+        if MPI.COMM_WORLD.size > 1:
+            ksp.getPC().setFactorSolverType("mumps")
+        else:
+            ksp.getPC().setFactorSolverType("umfpack")
 
         # Solve
         x = self.A.createVecLeft()

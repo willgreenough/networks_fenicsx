@@ -22,8 +22,8 @@ class NetworkGraph(nx.DiGraph):
     Make FEniCSx mesh from networkx directed graph
     '''
 
-    def __init__(self, config: config.Config):
-        nx.DiGraph.__init__(self)
+    def __init__(self, config: config.Config, graph: nx.DiGraph = None):
+        nx.DiGraph.__init__(self, graph)
 
         self.comm = MPI.COMM_WORLD
         self.cfg = config
@@ -210,7 +210,6 @@ class NetworkGraph(nx.DiGraph):
 
         # Broadcast global direction from root (0) to all processors
         global_dir = self.comm.bcast(global_dir, root=0)
-        print("proc ", self.comm.rank, " - global dir = ", global_dir)
         global_dir_copy = copy.deepcopy(global_dir)
 
         for i, (u, v) in enumerate(self.edges):
