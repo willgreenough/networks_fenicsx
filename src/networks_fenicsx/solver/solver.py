@@ -16,6 +16,7 @@ You can freely redistribute it and/or modify it under the terms of the GNU Gener
 Modified by Cécile Daversin-Catty - 2023
 '''
 
+
 class Solver():
 
     def __init__(self, config: config.Config, graph: mesh.NetworkGraph, assembler: assembly.Assembler):

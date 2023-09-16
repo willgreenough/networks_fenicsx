@@ -12,6 +12,7 @@ You can freely redistribute it and/or modify it under the terms of the GNU Gener
 Modified by Cécile Daversin-Catty - 2023
 '''
 
+
 def reorder_mesh(msh):
     # FIXME Check this is correct
     # FIXME For a high-order mesh, the geom has more dofs so need to modify

@@ -12,6 +12,7 @@ You can freely redistribute it and/or modify it under the terms of the GNU Gener
 Modified by Cécile Daversin-Catty - 2023
 '''
 
+
 def make_line_graph(n, cfg: config.Config, dim=3):
     '''
     Make a graph along the unit x-axis with n nodes
