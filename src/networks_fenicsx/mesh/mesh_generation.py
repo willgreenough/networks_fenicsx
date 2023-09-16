@@ -3,6 +3,14 @@ import networkx as nx
 from networks_fenicsx import config
 import numpy as np
 
+'''
+This file is based on the graphnics project (https://arxiv.org/abs/2212.02916), https://github.com/IngeborgGjerde/fenics-networks - forked on August 2022
+Copyright (C) 2022-2023 by Ingeborg Gjerde
+
+You can freely redistribute it and/or modify it under the terms of the GNU General Public License, version 3.0, provided that the above copyright notice is kept intact and that the source code is made available under an open-source license.
+
+Modified by Cécile Daversin-Catty - 2023
+'''
 
 def make_line_graph(n, cfg: config.Config, dim=3):
     '''
